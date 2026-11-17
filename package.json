@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "node scripts/dev.mjs",
     "e2e": "playwright test --config e2e/playwright.config.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
