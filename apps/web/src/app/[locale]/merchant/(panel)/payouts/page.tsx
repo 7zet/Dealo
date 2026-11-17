@@ -24,7 +24,8 @@ export default async function PayoutsPage({ params }: { params: Promise<{ locale
   const user = await loadForVisitor(locale, `/${locale}/merchant/payouts`, () =>
     accountGetOrNull<User>('/me'),
   );
-  if (!user?.roles.some((role) => role === 'merchant_owner' || role === 'merchant_manager')) notFound();
+  if (!user?.roles.some((role) => role === 'merchant_owner' || role === 'merchant_manager'))
+    notFound();
   const list = await loadForVisitor(locale, `/${locale}/merchant/payouts`, () =>
     accountGet<PayoutPage>('/merchant/payouts'),
   );
@@ -45,7 +46,10 @@ export default async function PayoutsPage({ params }: { params: Promise<{ locale
     <div className="grid gap-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-title font-bold">{t('payoutsTitle')}</h1>
-        <StatementsDownload rows={rows} filename={`payouts-${new Date().toISOString().slice(0, 10)}.csv`} />
+        <StatementsDownload
+          rows={rows}
+          filename={`payouts-${new Date().toISOString().slice(0, 10)}.csv`}
+        />
       </div>
       {list.items.length === 0 ? (
         <p className="text-ink-muted">{t('payoutsEmpty')}</p>

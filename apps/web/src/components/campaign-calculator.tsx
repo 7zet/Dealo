@@ -19,7 +19,13 @@ export function CampaignCalculator({ locale }: { locale: Locale }) {
   const [capacity, setCapacity] = useState(100);
   const [commission, setCommission] = useState(15);
 
-  const valid = original > 0 && deal > 0 && deal < original && capacity > 0 && commission >= 0 && commission < 100;
+  const valid =
+    original > 0 &&
+    deal > 0 &&
+    deal < original &&
+    capacity > 0 &&
+    commission >= 0 &&
+    commission < 100;
   const discount = valid ? Math.round((1 - deal / original) * 100) : 0;
   const perVoucher = valid ? deal * (1 - commission / 100) : 0;
   const totalReceive = perVoucher * capacity;
@@ -30,10 +36,25 @@ export function CampaignCalculator({ locale }: { locale: Locale }) {
     <div className="grid gap-6">
       <p className="text-sm text-ink-muted">{t('calcHint')}</p>
       <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
-        <NumberField label={t('calcOriginal')} value={original} onChange={setOriginal} className={inputClass} />
+        <NumberField
+          label={t('calcOriginal')}
+          value={original}
+          onChange={setOriginal}
+          className={inputClass}
+        />
         <NumberField label={t('calcDeal')} value={deal} onChange={setDeal} className={inputClass} />
-        <NumberField label={t('calcCapacity')} value={capacity} onChange={setCapacity} className={inputClass} />
-        <NumberField label={t('calcCommission')} value={commission} onChange={setCommission} className={inputClass} />
+        <NumberField
+          label={t('calcCapacity')}
+          value={capacity}
+          onChange={setCapacity}
+          className={inputClass}
+        />
+        <NumberField
+          label={t('calcCommission')}
+          value={commission}
+          onChange={setCommission}
+          className={inputClass}
+        />
       </div>
       {valid && (
         <dl className="grid max-w-2xl gap-3 rounded-card border border-border p-5 text-sm sm:grid-cols-2">

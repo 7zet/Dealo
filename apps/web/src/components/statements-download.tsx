@@ -20,8 +20,20 @@ export function StatementsDownload({ rows, filename }: { rows: StatementRow[]; f
 
   function download() {
     const header = ['period', 'gross', 'commission', 'net', 'status', 'paid_on'];
-    const lines = [header, ...rows.map((row) => [row.period, row.gross, row.commission, row.net, row.status, row.paid_on])];
-    const csv = lines.map((cells) => cells.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const lines = [
+      header,
+      ...rows.map((row) => [
+        row.period,
+        row.gross,
+        row.commission,
+        row.net,
+        row.status,
+        row.paid_on,
+      ]),
+    ];
+    const csv = lines
+      .map((cells) => cells.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
+      .join('\n');
     const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;

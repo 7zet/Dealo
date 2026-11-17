@@ -63,7 +63,13 @@ function problemKey(code: string | undefined) {
 
 const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
 
-export function MerchantRegisterForm({ categories, cities }: { categories: Option[]; cities: City[] }) {
+export function MerchantRegisterForm({
+  categories,
+  cities,
+}: {
+  categories: Option[];
+  cities: City[];
+}) {
   const t = useTranslations('MerchantRegister');
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -128,11 +134,21 @@ export function MerchantRegisterForm({ categories, cities }: { categories: Optio
     <form className="mt-10 grid max-w-xl gap-5" noValidate onSubmit={form.handleSubmit(submit)}>
       <label className="grid gap-1" htmlFor="legalName">
         {t('legalName')}
-        <input id="legalName" className={inputClass} aria-invalid={Boolean(errors.legalName)} {...form.register('legalName')} />
+        <input
+          id="legalName"
+          className={inputClass}
+          aria-invalid={Boolean(errors.legalName)}
+          {...form.register('legalName')}
+        />
       </label>
       <label className="grid gap-1" htmlFor="displayName">
         {t('displayName')}
-        <input id="displayName" className={inputClass} aria-invalid={Boolean(errors.displayName)} {...form.register('displayName')} />
+        <input
+          id="displayName"
+          className={inputClass}
+          aria-invalid={Boolean(errors.displayName)}
+          {...form.register('displayName')}
+        />
       </label>
       <label className="grid gap-1" htmlFor="stir">
         {t('stir')}
@@ -214,19 +230,38 @@ export function MerchantRegisterForm({ categories, cities }: { categories: Optio
       </label>
       <label className="grid gap-1" htmlFor="phone">
         {t('phone')}
-        <input id="phone" type="tel" className={inputClass} aria-invalid={Boolean(errors.phone)} {...form.register('phone')} />
+        <input
+          id="phone"
+          type="tel"
+          className={inputClass}
+          aria-invalid={Boolean(errors.phone)}
+          {...form.register('phone')}
+        />
       </label>
       <label className="grid gap-1" htmlFor="address">
         {t('address')}
-        <input id="address" className={inputClass} aria-invalid={Boolean(errors.address)} {...form.register('address')} />
+        <input
+          id="address"
+          className={inputClass}
+          aria-invalid={Boolean(errors.address)}
+          {...form.register('address')}
+        />
       </label>
       <label className="flex items-start gap-3 text-small" htmlFor="contractAccepted">
-        <input id="contractAccepted" type="checkbox" className="mt-1" {...form.register('contractAccepted')} />
+        <input
+          id="contractAccepted"
+          type="checkbox"
+          className="mt-1"
+          {...form.register('contractAccepted')}
+        />
         <span>{t('contract')}</span>
       </label>
 
       {error && (
-        <p role="alert" className="flex items-start gap-2 rounded-control-ui bg-error-tint p-3 text-error">
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-control-ui bg-error-tint p-3 text-error"
+        >
           <span aria-hidden="true">!</span>
           <span>{error}</span>
         </p>

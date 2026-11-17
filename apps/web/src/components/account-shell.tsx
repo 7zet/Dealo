@@ -26,11 +26,18 @@ export async function AccountShell({
   section: (typeof SECTIONS)[number];
   children: ReactNode;
 }) {
-  const [t, merchant, tm] = await Promise.all([getTranslations('Account'), isMerchant(), getTranslations('MerchantRegister')]);
+  const [t, merchant, tm] = await Promise.all([
+    getTranslations('Account'),
+    isMerchant(),
+    getTranslations('MerchantRegister'),
+  ]);
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <h1 className="text-title font-bold">{t('title')}</h1>
-      <nav aria-label={t('title')} className="mt-6 flex flex-wrap gap-2 border-b border-border pb-3">
+      <nav
+        aria-label={t('title')}
+        className="mt-6 flex flex-wrap gap-2 border-b border-border pb-3"
+      >
         {SECTIONS.map((item) => (
           <Link
             key={item}

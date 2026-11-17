@@ -49,7 +49,11 @@ export function MerchantReviewReply({
         <p className="text-sm font-semibold">{t('yourReply')}</p>
         <p className="text-sm">{initialText}</p>
         {canEdit && (
-          <button type="button" onClick={() => setEditing(true)} className="justify-self-start text-sm font-semibold text-brand">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="justify-self-start text-sm font-semibold text-brand"
+          >
             {t('editReply')}
           </button>
         )}
@@ -76,7 +80,11 @@ export function MerchantReviewReply({
         >
           {t('sendReply')}
         </button>
-        {message && <span role="status" className="text-sm text-ink-muted">{message}</span>}
+        {message && (
+          <span role="status" className="text-sm text-ink-muted">
+            {message}
+          </span>
+        )}
       </div>
     </form>
   );

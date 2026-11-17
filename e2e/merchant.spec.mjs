@@ -56,7 +56,9 @@ test('cashier cannot create deals', async () => {
   expect(response.status).toBe(403);
 });
 
-test('owner creates, admin approves, buyer buys, cashier redeems and sees own history', async ({ browser }) => {
+test('owner creates, admin approves, buyer buys, cashier redeems and sees own history', async ({
+  browser,
+}) => {
   const owner = await login('owner-b@local.test');
   const admin = await login('admin-b@local.test');
   const buyer = await login('user@local.test');
@@ -83,7 +85,14 @@ test('owner creates, admin approves, buyer buys, cashier redeems and sees own hi
       body: PNG,
     });
     expect(stored.status).toBe(204);
-    media.push({ url: upload.asset.url, alt: text('Rasm'), sort_order: index, width: 1, height: 1, blurhash: '' });
+    media.push({
+      url: upload.asset.url,
+      alt: text('Rasm'),
+      sort_order: index,
+      width: 1,
+      height: 1,
+      blurhash: '',
+    });
   }
 
   const slug = `e2e-deal-${Date.now()}`;
@@ -107,7 +116,14 @@ test('owner creates, admin approves, buyer buys, cashier redeems and sees own hi
     max_per_user: 2,
     location_ids: [locationId],
     options: [
-      { title: text('Standart'), original_price: 200000, deal_price: 100000, stock_total: 5, sort_order: 0, is_active: true },
+      {
+        title: text('Standart'),
+        original_price: 200000,
+        deal_price: 100000,
+        stock_total: 5,
+        sort_order: 0,
+        is_active: true,
+      },
     ],
     media,
   });
@@ -122,13 +138,30 @@ test('owner creates, admin approves, buyer buys, cashier redeems and sees own hi
   expect((await approved.json()).status).toBe('active');
 
   // Buyer pays through the mock provider; the webhook runs asynchronously, so poll for the voucher.
-  const order = await call(buyer, 'POST', '/orders', { items: [{ deal_option_id: deal.options[0].id, quantity: 1 }] }, {
-    'Idempotency-Key': crypto.randomUUID(),
-  });
+  const order = await call(
+    buyer,
+    'POST',
+    '/orders',
+    { items: [{ deal_option_id: deal.options[0].id, quantity: 1 }] },
+    {
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+  );
   expect(order.status).toBe(201);
   const orderBody = await order.json();
-  const payment = await (await call(buyer, 'POST', `/orders/${orderBody.id}/pay`, { provider: 'mock', terms_accepted: true })).json();
-  expect((await call(buyer, 'POST', `/payments/mock/${payment.payment_id}/complete`, { outcome: 'succeeded' })).status).toBe(202);
+  const payment = await (
+    await call(buyer, 'POST', `/orders/${orderBody.id}/pay`, {
+      provider: 'mock',
+      terms_accepted: true,
+    })
+  ).json();
+  expect(
+    (
+      await call(buyer, 'POST', `/payments/mock/${payment.payment_id}/complete`, {
+        outcome: 'succeeded',
+      })
+    ).status,
+  ).toBe(202);
 
   let voucher;
   for (let attempt = 0; attempt < 20 && !voucher; attempt += 1) {
@@ -165,7 +198,9 @@ test('owner creates, admin approves, buyer buys, cashier redeems and sees own hi
 
   // The same voucher cannot be used twice.
   const cashier = await login('cashier-b@local.test');
-  const again = await call(cashier, 'POST', `/merchant/vouchers/${voucher.id}/redeem`, { location_id: locationId });
+  const again = await call(cashier, 'POST', `/merchant/vouchers/${voucher.id}/redeem`, {
+    location_id: locationId,
+  });
   expect(again.status).toBe(409);
   await context.close();
 });

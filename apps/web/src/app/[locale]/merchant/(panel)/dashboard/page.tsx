@@ -14,13 +14,18 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   const dashboard = await loadForVisitor(locale, `/${locale}/merchant/dashboard`, () =>
     accountGet<Dashboard>('/merchant/dashboard'),
   );
-  const money = (amount: number) => formatMoney(amount, locale as Parameters<typeof formatMoney>[1], 'UZS');
+  const money = (amount: number) =>
+    formatMoney(amount, locale as Parameters<typeof formatMoney>[1], 'UZS');
   const peak = Math.max(1, ...dashboard.sales_chart.map((point) => point.value));
 
   const metrics = [
     { label: t('totalSales'), metric: dashboard.total_sales, format: money },
     { label: t('vouchersSold'), metric: dashboard.vouchers_sold, format: (v: number) => String(v) },
-    { label: t('vouchersRedeemed'), metric: dashboard.vouchers_redeemed, format: (v: number) => String(v) },
+    {
+      label: t('vouchersRedeemed'),
+      metric: dashboard.vouchers_redeemed,
+      format: (v: number) => String(v),
+    },
     { label: t('activeDeals'), metric: dashboard.active_deals, format: (v: number) => String(v) },
   ];
 
@@ -31,7 +36,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         {metrics.map(({ label, metric, format: render }) => (
           <div key={label} className="rounded-card border border-border bg-surface p-4">
             <p className="text-sm text-ink-muted">{label}</p>
-            <p className="mt-2 text-subtitle font-bold tabular-nums text-ink">{render(metric.value)}</p>
+            <p className="mt-2 text-subtitle font-bold tabular-nums text-ink">
+              {render(metric.value)}
+            </p>
             <p className="mt-1 text-sm text-ink-muted">
               {t('vsPrevious', { percent: metric.change_percent.toFixed(1) })}
             </p>
@@ -39,8 +46,13 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         ))}
       </div>
 
-      <section aria-labelledby="chart-title" className="rounded-card border border-border bg-surface p-5">
-        <h2 id="chart-title" className="font-semibold">{t('salesChart')}</h2>
+      <section
+        aria-labelledby="chart-title"
+        className="rounded-card border border-border bg-surface p-5"
+      >
+        <h2 id="chart-title" className="font-semibold">
+          {t('salesChart')}
+        </h2>
         {dashboard.sales_chart.length === 0 ? (
           <p className="mt-4 text-ink-muted">{t('noChart')}</p>
         ) : (
@@ -58,14 +70,20 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
       </section>
 
       <section aria-labelledby="pending-title" className="grid gap-3">
-        <h2 id="pending-title" className="font-semibold">{t('pendingDeals')}</h2>
+        <h2 id="pending-title" className="font-semibold">
+          {t('pendingDeals')}
+        </h2>
         {dashboard.pending_deals.length === 0 ? (
           <p className="text-ink-muted">{t('noPending')}</p>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {dashboard.pending_deals.map((deal) => (
               <li key={deal.id}>
-                <DealCard deal={deal} locale={locale as Parameters<typeof formatMoney>[1]} currency="UZS" />
+                <DealCard
+                  deal={deal}
+                  locale={locale as Parameters<typeof formatMoney>[1]}
+                  currency="UZS"
+                />
               </li>
             ))}
           </ul>

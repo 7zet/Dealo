@@ -1,4 +1,3 @@
-
 /** Sort values allowed in the listing URL; they are exactly the OpenAPI `sort` enum. */
 export const DEAL_SORTS = [
   'recommended',
@@ -50,7 +49,8 @@ export function buildDealQuery({
   if (subcategory) query.set('subcategory', subcategory);
 
   const rating = first(searchParams.rating);
-  if (rating && (MIN_RATINGS as readonly string[]).includes(rating)) query.set('min_rating', rating);
+  if (rating && (MIN_RATINGS as readonly string[]).includes(rating))
+    query.set('min_rating', rating);
 
   if (first(searchParams.endingSoon) === 'true') query.set('ending_soon', 'true');
 

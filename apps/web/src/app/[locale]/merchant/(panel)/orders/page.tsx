@@ -57,8 +57,12 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                       </div>
                     ))}
                   </td>
-                  <td className="py-2 pr-4">{format.dateTime(new Date(order.created_at), { dateStyle: 'medium' })}</td>
-                  <td className="py-2 pr-4">{formatMoney(order.total.amount, locale as Locale, currency)}</td>
+                  <td className="py-2 pr-4">
+                    {format.dateTime(new Date(order.created_at), { dateStyle: 'medium' })}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {formatMoney(order.total.amount, locale as Locale, currency)}
+                  </td>
                   <td className="py-2 pr-4">
                     {order.status in STATUS_KEYS
                       ? t(STATUS_KEYS[order.status as keyof typeof STATUS_KEYS])

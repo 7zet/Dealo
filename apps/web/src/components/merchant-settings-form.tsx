@@ -11,7 +11,12 @@ export function MerchantSettingsForm({
   initial,
   locations,
 }: {
-  initial: { order_emails: boolean; review_emails: boolean; payout_emails: boolean; default_location_id: string | null };
+  initial: {
+    order_emails: boolean;
+    review_emails: boolean;
+    payout_emails: boolean;
+    default_location_id: string | null;
+  };
   locations: LocationOption[];
 }) {
   const t = useTranslations('MerchantPanel');
@@ -69,10 +74,18 @@ export function MerchantSettingsForm({
         </select>
       </label>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={busy} className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface">
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+        >
           {t('saveSettings')}
         </button>
-        {message && <span role="status" className="text-sm text-ink-muted">{message}</span>}
+        {message && (
+          <span role="status" className="text-sm text-ink-muted">
+            {message}
+          </span>
+        )}
       </div>
     </form>
   );

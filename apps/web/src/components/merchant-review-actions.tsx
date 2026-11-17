@@ -7,7 +7,13 @@ import { useState } from 'react';
 const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
 
 /** Start review, approve, or reject one business. A rejection needs a reason the merchant can read. */
-export function MerchantReviewActions({ merchantId, reviewStatus }: { merchantId: string; reviewStatus: string }) {
+export function MerchantReviewActions({
+  merchantId,
+  reviewStatus,
+}: {
+  merchantId: string;
+  reviewStatus: string;
+}) {
   const t = useTranslations('AdminMerchants');
   const router = useRouter();
   const [rejecting, setRejecting] = useState(false);
@@ -76,7 +82,11 @@ export function MerchantReviewActions({ merchantId, reviewStatus }: { merchantId
         <div className="grid max-w-xl gap-2">
           <label className="grid gap-1 text-sm">
             {t('reasonLabel')}
-            <textarea className={inputClass} value={reason} onChange={(event) => setReason(event.target.value)} />
+            <textarea
+              className={inputClass}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
           </label>
           <button
             type="button"

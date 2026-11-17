@@ -41,26 +41,46 @@ export function MerchantStaffInvite() {
   }
 
   return (
-    <form onSubmit={invite} className="grid gap-4 rounded-card border border-border p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+    <form
+      onSubmit={invite}
+      className="grid gap-4 rounded-card border border-border p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+    >
       <div className="sm:col-span-3">
         <h2 className="font-semibold">{t('staffInviteTitle')}</h2>
         <p className="text-sm text-ink-muted">{t('staffInviteHint')}</p>
       </div>
       <label className="grid gap-2 text-sm font-semibold">
         {t('staffPhone')}
-        <input className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
+        <input
+          className={inputClass}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          inputMode="tel"
+        />
       </label>
       <label className="grid gap-2 text-sm font-semibold">
         {t('staffRole')}
-        <select className={inputClass} value={role} onChange={(e) => setRole(e.target.value as AssignableRole)}>
+        <select
+          className={inputClass}
+          value={role}
+          onChange={(e) => setRole(e.target.value as AssignableRole)}
+        >
           <option value="merchant_cashier">{t('roleCashier')}</option>
           <option value="merchant_manager">{t('roleManager')}</option>
         </select>
       </label>
-      <button type="submit" disabled={busy} className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface">
+      <button
+        type="submit"
+        disabled={busy}
+        className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+      >
         {t('staffInvite')}
       </button>
-      {message && <p role="alert" className="text-sm text-danger sm:col-span-3">{message}</p>}
+      {message && (
+        <p role="alert" className="text-sm text-danger sm:col-span-3">
+          {message}
+        </p>
+      )}
     </form>
   );
 }
@@ -130,7 +150,11 @@ export function MerchantStaffRow({
       >
         {t('staffRemove')}
       </button>
-      {message && <span role="alert" className="text-sm text-danger">{message}</span>}
+      {message && (
+        <span role="alert" className="text-sm text-danger">
+          {message}
+        </span>
+      )}
     </div>
   );
 }

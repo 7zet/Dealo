@@ -33,7 +33,11 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                   {format.dateTime(new Date(order.created_at), { dateStyle: 'medium' })}
                 </span>
                 <span className="text-sm font-semibold text-ink">
-                  {formatMoney(order.total.amount, locale as Parameters<typeof formatMoney>[1], 'UZS')}
+                  {formatMoney(
+                    order.total.amount,
+                    locale as Parameters<typeof formatMoney>[1],
+                    'UZS',
+                  )}
                 </span>
               </Link>
             </li>

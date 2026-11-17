@@ -21,7 +21,8 @@ export default async function OrderPage({
     accountGetOrNull<Order>(`/me/orders/${encodeURIComponent(id)}`),
   );
   if (!order) notFound();
-  const money = (amount: number) => formatMoney(amount, locale as Parameters<typeof formatMoney>[1], 'UZS');
+  const money = (amount: number) =>
+    formatMoney(amount, locale as Parameters<typeof formatMoney>[1], 'UZS');
 
   return (
     <AccountShell section="orders">
@@ -45,7 +46,9 @@ export default async function OrderPage({
       <ul className="mt-6 grid gap-3">
         {order.items.map((item) => (
           <li key={item.id} className="rounded-card border border-border bg-surface p-4">
-            <span className="block font-semibold text-ink">{pickText(item.title_snapshot, locale)}</span>
+            <span className="block font-semibold text-ink">
+              {pickText(item.title_snapshot, locale)}
+            </span>
             <span className="text-sm text-ink-muted">× {item.quantity}</span>
           </li>
         ))}

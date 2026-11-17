@@ -77,7 +77,11 @@ export default async function PanelLayout({
           {t('navRedeem')}
         </Link>
         {MERCHANT_LINKS.map(({ href, key }) => (
-          <Link key={href} href={href} className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink">
+          <Link
+            key={href}
+            href={href}
+            className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
+          >
             {m(key)}
           </Link>
         ))}

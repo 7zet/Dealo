@@ -39,7 +39,10 @@ export default async function SuccessPage({
       <p className="mt-6 text-sm text-ink-muted">
         {t('orderNumber')}: <span className="font-mono text-ink">{order.number}</span>
       </p>
-      <Link href="/account/coupons" className="mt-8 inline-block rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface">
+      <Link
+        href="/account/coupons"
+        className="mt-8 inline-block rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+      >
         {t('viewCoupons')}
       </Link>
     </div>

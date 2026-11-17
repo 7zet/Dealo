@@ -6,7 +6,11 @@ import { publicApi } from '@grupon/api-client';
 import { MerchantRegisterForm } from '@/components/merchant-register-form';
 import { pickText } from '@/lib/localized';
 
-export default async function MerchantRegisterPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function MerchantRegisterPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
   const { locale } = await params;
   if (!(await cookies()).get('access_token')) redirect(`/${locale}/login?next=/merchant/register`);
 

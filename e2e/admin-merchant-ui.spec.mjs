@@ -57,9 +57,26 @@ async function submitDeal(owner, title) {
   const locations = await (await call(owner, 'GET', '/merchant/locations')).json();
   const media = [];
   for (let index = 0; index < 3; index += 1) {
-    const upload = await (await call(owner, 'POST', '/merchant/media', { filename: 'a.png', content_type: 'image/png', size: PNG.length })).json();
-    await fetch(new URL(upload.upload_url, API), { method: 'PUT', headers: { Authorization: `Bearer ${owner}`, 'Content-Type': 'image/png' }, body: PNG });
-    media.push({ url: upload.asset.url, alt: text('Rasm'), sort_order: index, width: 1, height: 1, blurhash: '' });
+    const upload = await (
+      await call(owner, 'POST', '/merchant/media', {
+        filename: 'a.png',
+        content_type: 'image/png',
+        size: PNG.length,
+      })
+    ).json();
+    await fetch(new URL(upload.upload_url, API), {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${owner}`, 'Content-Type': 'image/png' },
+      body: PNG,
+    });
+    media.push({
+      url: upload.asset.url,
+      alt: text('Rasm'),
+      sort_order: index,
+      width: 1,
+      height: 1,
+      blurhash: '',
+    });
   }
   const created = await call(owner, 'POST', '/merchant/deals', {
     slug: `ui-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -80,7 +97,16 @@ async function submitDeal(owner, title) {
     voucher_valid_days: 30,
     max_per_user: 2,
     location_ids: [locations.items[0].id],
-    options: [{ title: text('Standart'), original_price: 200000, deal_price: 100000, stock_total: 5, sort_order: 0, is_active: true }],
+    options: [
+      {
+        title: text('Standart'),
+        original_price: 200000,
+        deal_price: 100000,
+        stock_total: 5,
+        sort_order: 0,
+        is_active: true,
+      },
+    ],
     media,
   });
   const deal = await created.json();
@@ -112,11 +138,22 @@ test('merchant attaches price proof before submission and admin sees it', async 
   const city = config.cities[0];
   const displayName = `Price proof ${suffix}`;
   const registered = await call(owner, 'POST', '/merchants', {
-    legal_name: `${displayName} MChJ`, display_name: displayName,
-    category_id: category.id, city_id: city.id, phone, address: 'Test kochasi 1',
-    lat: 41.3, lng: 69.2, stir: `4${suffix}0`.slice(0, 9), org_form: 'mchj',
-    tax_regime: 'vat_payer', bank_mfo: '00014', bank_account: `2020800090010${suffix}`.padEnd(20, '0').slice(0, 20),
-    responsible_name: 'Alisher Usmonov', contract_version: 'v1.1', contract_accepted: true,
+    legal_name: `${displayName} MChJ`,
+    display_name: displayName,
+    category_id: category.id,
+    city_id: city.id,
+    phone,
+    address: 'Test kochasi 1',
+    lat: 41.3,
+    lng: 69.2,
+    stir: `4${suffix}0`.slice(0, 9),
+    org_form: 'mchj',
+    tax_regime: 'vat_payer',
+    bank_mfo: '00014',
+    bank_account: `2020800090010${suffix}`.padEnd(20, '0').slice(0, 20),
+    responsible_name: 'Alisher Usmonov',
+    contract_version: 'v1.1',
+    contract_accepted: true,
   });
   expect(registered.status).toBe(201);
 
@@ -125,7 +162,9 @@ test('merchant attaches price proof before submission and admin sees it', async 
   await page.waitForLoadState('networkidle');
   for (let index = 0; index < 3; index += 1) {
     const field = page.locator('input[type=file]').nth(index);
-    const uploaded = page.waitForResponse((response) => response.url().includes('/api/bff/merchant/documents/'));
+    const uploaded = page.waitForResponse((response) =>
+      response.url().includes('/api/bff/merchant/documents/'),
+    );
     await field.setInputFiles({ name: 'proof.png', mimeType: 'image/png', buffer: PNG });
     expect((await uploaded).status()).toBe(204);
     await expect(field.locator('xpath=..').getByText('Yuklangan')).toBeVisible();
@@ -150,10 +189,18 @@ test('admin approves and rejects deals in the moderation queue', async ({ page }
   await signIn(page, 'admin@local.test');
   await page.goto('/uz/admin/moderation');
   await expect(page.getByText(approveTitle)).toBeVisible();
-  await page.getByText(approveTitle).locator('xpath=ancestor::li').getByRole('button', { name: /^Tasdiqlash$/ }).click();
+  await page
+    .getByText(approveTitle)
+    .locator('xpath=ancestor::li')
+    .getByRole('button', { name: /^Tasdiqlash$/ })
+    .click();
   await expect(page.getByText(approveTitle)).toHaveCount(0);
 
-  await page.getByText(rejectTitle).locator('xpath=ancestor::li').getByRole('button', { name: /^Rad etish$/ }).click();
+  await page
+    .getByText(rejectTitle)
+    .locator('xpath=ancestor::li')
+    .getByRole('button', { name: /^Rad etish$/ })
+    .click();
   await page.getByLabel(/Rad etish sababi/).fill('Rasmlar tavsifga mos emas');
   await page.getByRole('button', { name: /Rad etishni yuborish/ }).click();
   await expect(page.getByText(rejectTitle)).toHaveCount(0);
@@ -173,7 +220,11 @@ test('merchant completes all six deal-wizard steps and submits for review', asyn
   await page.waitForLoadState('networkidle');
   const existing = await page.locator('main img').count();
   for (let index = 0; index < 3; index += 1) {
-    await page.locator('input[type=file]').setInputFiles({ name: `wizard-${Date.now()}-${index}.png`, mimeType: 'image/png', buffer: PNG });
+    await page.locator('input[type=file]').setInputFiles({
+      name: `wizard-${Date.now()}-${index}.png`,
+      mimeType: 'image/png',
+      buffer: PNG,
+    });
     await page.getByRole('button', { name: /Qirqib yuklash/ }).click();
     await expect(page.locator('main img')).toHaveCount(existing + index + 1, { timeout: 15000 });
   }
@@ -193,7 +244,7 @@ test('merchant completes all six deal-wizard steps and submits for review', asyn
   await page.locator('main select').nth(1).selectOption({ index: 1 });
   await fillGroup('Sarlavha', title);
   await fillGroup('Qisqa tavsif', 'Qisqa tavsif');
-  await fillGroup('Tavsif', 'To\'liq tavsif');
+  await fillGroup('Tavsif', "To'liq tavsif");
   await expect(page.getByLabel('Ko‘rinish').getByText(title)).toBeVisible();
   await page.getByRole('button', { name: /^Keyingi$/ }).click();
 
@@ -207,7 +258,8 @@ test('merchant completes all six deal-wizard steps and submits for review', asyn
   for (let index = 0; index < 3; index += 1) await mediaChoices.nth(index).check({ force: true });
   await page.getByRole('button', { name: /^Keyingi$/ }).click();
 
-  for (let index = 1; index <= 3; index += 1) await fillGroup(`Afzalliklar ${index}`, `Afzallik ${index}`);
+  for (let index = 1; index <= 3; index += 1)
+    await fillGroup(`Afzalliklar ${index}`, `Afzallik ${index}`);
   await fillGroup('Shartlar', 'Foydalanish shartlari');
   await fillGroup('Foydalanish yo‘riqnomasi', 'Kassirga kodni ko‘rsating');
   await page.getByRole('button', { name: /^Keyingi$/ }).click();
@@ -218,10 +270,16 @@ test('merchant completes all six deal-wizard steps and submits for review', asyn
   await page.getByRole('button', { name: /^Keyingi$/ }).click();
 
   await expect(page.getByText(title).last()).toBeVisible();
-  const created = page.waitForResponse((response) => response.url().endsWith('/api/bff/merchant/deals') && response.request().method() === 'POST');
+  const created = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/bff/merchant/deals') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: /Tekshiruvga yuborish/ }).click();
   const createdResponse = await created;
-  expect(createdResponse.status(), `${await createdResponse.text()}\n${createdResponse.request().postData()}`).toBe(201);
+  expect(
+    createdResponse.status(),
+    `${await createdResponse.text()}\n${createdResponse.request().postData()}`,
+  ).toBe(201);
   await expect(page.getByRole('alert').first()).toContainText('Tekshiruvga yuborildi');
   await page.goto('/uz/merchant/deals');
   const row = page.getByRole('row').filter({ hasText: title });

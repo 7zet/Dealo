@@ -250,4 +250,3 @@ export const reviews: Review[] = Array.from({ length: 20 }, (_, index) => ({
       }
     : {}),
 }));
-

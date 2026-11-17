@@ -11,26 +11,26 @@ Bu fayl `ibragimoffline/Dealo` reposi (PRD v1.1 va dizayn hujjatlari) to'liq o'q
 
 ## 2. Asosiy mahsulot farqlari
 
-| Mavzu | Dealo (PRD v1.1) | Bizda hozir | Qaror |
-|---|---|---|---|
-| Biznes modeli | Oldindan to'lov, platforma agent, pul merchantga vaucher ishlatilgandan keyin | Savdo bor, lekin pul oqimi modeli yo'q (mock to'lov) | **Qo'shish** (moliya yadrosi) |
-| Buyurtma | Faqat "Hozir sotib olish", bitta variant, bitta merchant | Savatcha (cart), ko'p mahsulot, guest + server cart | **Savatchani olib tashlash** |
-| Tovar | Logistika taqiqlangan (BR-14). Faqat "do'konda olib ketish" (R3) | `product` turi, `shipping_address`, goods checkout | **Olib tashlash** |
-| Sovg'a | Yo'q (R3) | Gift maydonlari (rejada, C2 olib tashlangan) | Kodda bo'lsa olib tashlash |
-| Valyuta | Faqat UZS, tiyinda `bigint` | UZS + USD ko'rsatish (≈) | **USD ni olib tashlash** |
-| Shaharlar | Toshkent (R1–R2); 2-shahar R3 | 3 shahar seed qilingan | Faqat Toshkent, qolganlari flag bilan yopiq |
-| Kategoriyalar | 4 pilot: Beauty & Wellness, Food & Drink, Things to Do, Health & Fitness | 10 kategoriya seed | Pilotga qisqartirish, qolganlari flag bilan |
-| Kanal | Responsive web + Telegram Mini App + bot + merchant PWA + admin | Faqat web | **Mini App va bot qo'shish** |
-| Login | Telefon OTP (SMS + Telegram), 2FA (TOTP) moliya/admin uchun | Email/parol + Google OAuth | **Almashtirish** (telefon OTP) |
-| Merchant onboarding | STIR, MChJ/YaTT, soliq rejimi, bank rekvizit (MFO), oferta e-qabul, hujjatlar | Nomi, telefon, manzil, kategoriya | **Kengaytirish** |
-| Deal | Versiyalangan (immutable), narx dalili, MXIK, QQS, kvota, limitlar, blackout | Versiyasiz, narx dalilisiz | **Kengaytirish** |
-| Vaucher | single_use / multi_use, zaxira kod, QR 30 s aylanadi, token HMAC | Bir martalik, QR statik, HMAC yo'q | **Kengaytirish** |
-| Sharh | R1b da oddiy reyting; to'liq R2 | Sharh yozish, shikoyat (C1) | **Qisqartirish** (R1b ga) |
-| Promo kod | R1b | Bor (kodda) | R1a dan olib tashlash |
-| Saqlangan deal (wishlist) | R2 | "Saved" sahifasi | **Olib tashlash** |
-| Kolleksiya, bosh sahifa bo'limlari, banner, seasonal | Yo'q | Bor (seed + sahifalar) | **Olib tashlash** yoki R2 |
-| Qidiruv | Lotin/kirill transliteratsiya, pg_trgm, FTS, geo | pg_trgm + FTS bor, transliteratsiya yo'q | **Transliteratsiya qo'shish** |
-| Xarita | Yandex yoki 2GIS (filial koordinatalari, PostGIS point) | Lat/lng ustunlari, xarita yo'q | Keyinroq |
+| Mavzu                                                | Dealo (PRD v1.1)                                                              | Bizda hozir                                          | Qaror                                       |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------- |
+| Biznes modeli                                        | Oldindan to'lov, platforma agent, pul merchantga vaucher ishlatilgandan keyin | Savdo bor, lekin pul oqimi modeli yo'q (mock to'lov) | **Qo'shish** (moliya yadrosi)               |
+| Buyurtma                                             | Faqat "Hozir sotib olish", bitta variant, bitta merchant                      | Savatcha (cart), ko'p mahsulot, guest + server cart  | **Savatchani olib tashlash**                |
+| Tovar                                                | Logistika taqiqlangan (BR-14). Faqat "do'konda olib ketish" (R3)              | `product` turi, `shipping_address`, goods checkout   | **Olib tashlash**                           |
+| Sovg'a                                               | Yo'q (R3)                                                                     | Gift maydonlari (rejada, C2 olib tashlangan)         | Kodda bo'lsa olib tashlash                  |
+| Valyuta                                              | Faqat UZS, tiyinda `bigint`                                                   | UZS + USD ko'rsatish (≈)                             | **USD ni olib tashlash**                    |
+| Shaharlar                                            | Toshkent (R1–R2); 2-shahar R3                                                 | 3 shahar seed qilingan                               | Faqat Toshkent, qolganlari flag bilan yopiq |
+| Kategoriyalar                                        | 4 pilot: Beauty & Wellness, Food & Drink, Things to Do, Health & Fitness      | 10 kategoriya seed                                   | Pilotga qisqartirish, qolganlari flag bilan |
+| Kanal                                                | Responsive web + Telegram Mini App + bot + merchant PWA + admin               | Faqat web                                            | **Mini App va bot qo'shish**                |
+| Login                                                | Telefon OTP (SMS + Telegram), 2FA (TOTP) moliya/admin uchun                   | Email/parol + Google OAuth                           | **Almashtirish** (telefon OTP)              |
+| Merchant onboarding                                  | STIR, MChJ/YaTT, soliq rejimi, bank rekvizit (MFO), oferta e-qabul, hujjatlar | Nomi, telefon, manzil, kategoriya                    | **Kengaytirish**                            |
+| Deal                                                 | Versiyalangan (immutable), narx dalili, MXIK, QQS, kvota, limitlar, blackout  | Versiyasiz, narx dalilisiz                           | **Kengaytirish**                            |
+| Vaucher                                              | single_use / multi_use, zaxira kod, QR 30 s aylanadi, token HMAC              | Bir martalik, QR statik, HMAC yo'q                   | **Kengaytirish**                            |
+| Sharh                                                | R1b da oddiy reyting; to'liq R2                                               | Sharh yozish, shikoyat (C1)                          | **Qisqartirish** (R1b ga)                   |
+| Promo kod                                            | R1b                                                                           | Bor (kodda)                                          | R1a dan olib tashlash                       |
+| Saqlangan deal (wishlist)                            | R2                                                                            | "Saved" sahifasi                                     | **Olib tashlash**                           |
+| Kolleksiya, bosh sahifa bo'limlari, banner, seasonal | Yo'q                                                                          | Bor (seed + sahifalar)                               | **Olib tashlash** yoki R2                   |
+| Qidiruv                                              | Lotin/kirill transliteratsiya, pg_trgm, FTS, geo                              | pg_trgm + FTS bor, transliteratsiya yo'q             | **Transliteratsiya qo'shish**               |
+| Xarita                                               | Yandex yoki 2GIS (filial koordinatalari, PostGIS point)                       | Lat/lng ustunlari, xarita yo'q                       | Keyinroq                                    |
 
 ## 3. Qo'shiladigan funksiyalar (Dealo talabi, bizda yo'q)
 
@@ -110,23 +110,23 @@ Bu fayl `ibragimoffline/Dealo` reposi (PRD v1.1 va dizayn hujjatlari) to'liq o'q
 
 ## 4. Olib tashlanadigan yoki o'zgartiriladigan funksiyalar
 
-| Funksiya | Qayerda | Sabab | Harakat |
-|---|---|---|---|
-| Savatcha (cart) | `stores/cart.ts`, `cart/page.tsx`, `cart` API, purchase-panel | PRD §6 "savatcha yo'q", faqat "Hozir sotib olish" | Olib tashlash, "Hozir sotib olish" qoldirish |
-| Goods (`kind: product`) | `catalog.sql`, `checkout-form.tsx`, `needsShipping` | BR-14: logistika taqiqlangan | Olib tashlash |
-| `shipping_address` | `CreateOrder` (OpenAPI), checkout | BR-14 | Olib tashlash |
-| Sovg'a maydonlari | `CartItemInput.gift_*`, checkout | R3 | Olib tashlash |
-| USD hint | `packages/ui/src/money.ts`, `formatMoney` | "Valyuta: UZS" | USD olib tashlash |
-| Email/parol login, Google OAuth | `identity`, `auth-form.tsx`, `google` paket | PRD: telefon OTP | OTP bilan almashtirish; Google — R1b yoki yo'q |
-| Saved (wishlist) | `account/saved`, `saved_deals` | R2 | Olib tashlash |
-| Kolleksiya, bosh sahifa bo'limlari, banner, seasonal | `collections`, `homepage_sections`, `banners`, `seasonal-deals` | PRD'da yo'q | Olib tashlash yoki R2 |
-| Promo kodlar | `promo_codes`, `CountActivePromoCodes` | R1b | R1a dan chiqarish (kod qoladi, o'chirilgan) |
-| Ko'p shahar | seed 3 shahar, `city` filtrlari | Toshkent (R1–R2) | Faqat Toshkent; boshqalari `searchable=false` |
-| Ko'p kategoriya (10) | seed | 4 pilot | 4 tasini qoldirish, qolganlari flag bilan yopiq |
-| Sharh yozish va shikoyat | `review` flow (C1) | R1b (oddiy reyting), R2 (to'liq) | R1a da reyting ko'rsatish yetarli; yozish — R1b |
-| `expired` tekshiruvi ko'p joyda | `ListDealSummaryRows` va h.k. | Dealo'da deal holatlari boshqacha | Holat mashinasini Dealo bo'yicha qayta yozish |
-| Cursor bo'lmagan pagination | `GET /deals` (page-based) | PRD: cursor pagination | Cursor'ga o'tkazish |
-| Deal `kind` | voucher/product | Faqat voucher (R1a) | Enum'ni `voucher`ga qisqartirish |
+| Funksiya                                             | Qayerda                                                         | Sabab                                             | Harakat                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| Savatcha (cart)                                      | `stores/cart.ts`, `cart/page.tsx`, `cart` API, purchase-panel   | PRD §6 "savatcha yo'q", faqat "Hozir sotib olish" | Olib tashlash, "Hozir sotib olish" qoldirish    |
+| Goods (`kind: product`)                              | `catalog.sql`, `checkout-form.tsx`, `needsShipping`             | BR-14: logistika taqiqlangan                      | Olib tashlash                                   |
+| `shipping_address`                                   | `CreateOrder` (OpenAPI), checkout                               | BR-14                                             | Olib tashlash                                   |
+| Sovg'a maydonlari                                    | `CartItemInput.gift_*`, checkout                                | R3                                                | Olib tashlash                                   |
+| USD hint                                             | `packages/ui/src/money.ts`, `formatMoney`                       | "Valyuta: UZS"                                    | USD olib tashlash                               |
+| Email/parol login, Google OAuth                      | `identity`, `auth-form.tsx`, `google` paket                     | PRD: telefon OTP                                  | OTP bilan almashtirish; Google — R1b yoki yo'q  |
+| Saved (wishlist)                                     | `account/saved`, `saved_deals`                                  | R2                                                | Olib tashlash                                   |
+| Kolleksiya, bosh sahifa bo'limlari, banner, seasonal | `collections`, `homepage_sections`, `banners`, `seasonal-deals` | PRD'da yo'q                                       | Olib tashlash yoki R2                           |
+| Promo kodlar                                         | `promo_codes`, `CountActivePromoCodes`                          | R1b                                               | R1a dan chiqarish (kod qoladi, o'chirilgan)     |
+| Ko'p shahar                                          | seed 3 shahar, `city` filtrlari                                 | Toshkent (R1–R2)                                  | Faqat Toshkent; boshqalari `searchable=false`   |
+| Ko'p kategoriya (10)                                 | seed                                                            | 4 pilot                                           | 4 tasini qoldirish, qolganlari flag bilan yopiq |
+| Sharh yozish va shikoyat                             | `review` flow (C1)                                              | R1b (oddiy reyting), R2 (to'liq)                  | R1a da reyting ko'rsatish yetarli; yozish — R1b |
+| `expired` tekshiruvi ko'p joyda                      | `ListDealSummaryRows` va h.k.                                   | Dealo'da deal holatlari boshqacha                 | Holat mashinasini Dealo bo'yicha qayta yozish   |
+| Cursor bo'lmagan pagination                          | `GET /deals` (page-based)                                       | PRD: cursor pagination                            | Cursor'ga o'tkazish                             |
+| Deal `kind`                                          | voucher/product                                                 | Faqat voucher (R1a)                               | Enum'ni `voucher`ga qisqartirish                |
 
 ## 5. Saqlanadigan kuchli tomonlar (Go va Next.js)
 
@@ -162,46 +162,29 @@ Bu qarorlar kodga ta'sir qiladi, shuning uchun avval siz hal qilasiz:
 Dealo'ning R1a qabul mezonlari (AT-01…AT-18) asosida, bizning kodga qo'llash tartibi:
 
 **Bosqich 1 — Moliya yadrosi (blokerlar):**
+
 1. Ledger jadvallari, append-only trigger, Σdebit=Σkredit constraint (BR-09, BR-10, ADR-0005).
 2. Hisoblar rejasi va provodkalar (DD-04 ga qarab).
 3. Vaucher holat mashinasi (`active → redeemed → …`), `redemptions_used/allowed`, `SELECT FOR UPDATE` (BR-03).
 4. Redeem reversal (10 daqiqa), storno (GAP-05).
 5. Kech to'lov (AT-13), hold expiry (AT-07), idempotency 24 soat.
 
-**Bosqich 2 — Pul chiqishi va nazorat:**
-6. Settlement: payable har redeemda, 3 kunlik dispute oynasi, haftalik payout.
-7. Payout 4-eyes (AT-18) va payout holatlari.
-8. Bank rekvizit hold 72 soat (AT-17), merchant bank_accounts tarixi.
-9. Reconciliation: kunlik, payout'dan keyin, oylik invariant (AT-08).
-10. Breakage (§8.5) va refund oqimi (FR-06, AT-11).
+**Bosqich 2 — Pul chiqishi va nazorat:** 6. Settlement: payable har redeemda, 3 kunlik dispute oynasi, haftalik payout. 7. Payout 4-eyes (AT-18) va payout holatlari. 8. Bank rekvizit hold 72 soat (AT-17), merchant bank_accounts tarixi. 9. Reconciliation: kunlik, payout'dan keyin, oylik invariant (AT-08). 10. Breakage (§8.5) va refund oqimi (FR-06, AT-11).
 
-**Bosqich 3 — Xavfsizlik va antifraud:**
-11. Telefon OTP, 2FA (TOTP) admin/finance/owner, RBAC matritsasi (AT-04, AT-09).
-12. Token HMAC, zaxira kod, QR 30 s aylanishi.
-13. Fraud signal qoidalari (AT-14), payout hold (AT-16).
-14. Audit log o'zgarmas (NFR-10).
+**Bosqich 3 — Xavfsizlik va antifraud:** 11. Telefon OTP, 2FA (TOTP) admin/finance/owner, RBAC matritsasi (AT-04, AT-09). 12. Token HMAC, zaxira kod, QR 30 s aylanishi. 13. Fraud signal qoidalari (AT-14), payout hold (AT-16). 14. Audit log o'zgarmas (NFR-10).
 
-**Bosqich 4 — Merchant va deal:**
-15. Merchant onboarding (STIR, bank, oferta e-qabul), holatlar (`approved ⇄ suspended`).
-16. Deal versiyalash, narx dalili, kvota, limitlar, blackout.
-17. Kategoriya flaglari va JSON Schema atributlari.
-18. Kalkulyator (FR-02.6).
+**Bosqich 4 — Merchant va deal:** 15. Merchant onboarding (STIR, bank, oferta e-qabul), holatlar (`approved ⇄ suspended`). 16. Deal versiyalash, narx dalili, kvota, limitlar, blackout. 17. Kategoriya flaglari va JSON Schema atributlari. 18. Kalkulyator (FR-02.6).
 
-**Bosqich 5 — Kanallar:**
-19. Telegram Mini App layout + initData login.
-20. Telegram bot (OTP va bildirishnomalar).
-21. Scanner PWA (kamera QR).
-22. Transliteratsiya (lotin/kirill) va qidiruv.
+**Bosqich 5 — Kanallar:** 19. Telegram Mini App layout + initData login. 20. Telegram bot (OTP va bildirishnomalar). 21. Scanner PWA (kamera QR). 22. Transliteratsiya (lotin/kirill) va qidiruv.
 
-**Bosqich 6 — Tozalash (olib tashlash):**
-23. Savatcha, goods, sovg'a, USD, saved, kolleksiya, banner, promo, ko'p shahar, ko'p kategoriya.
+**Bosqich 6 — Tozalash (olib tashlash):** 23. Savatcha, goods, sovg'a, USD, saved, kolleksiya, banner, promo, ko'p shahar, ko'p kategoriya.
 
-**Bosqich 7 — Yuridik gate (kod emas, lekin production'dan oldin):**
-24. G1 (pul oqimi), G2 (fiskal), G3 (e-tijorat ro'yxat), G4 (PII lokalizatsiya), G5 (iste'molchi huquqlari), G6 (merchant oferta), G7 (reklama), G8 (brend — "Dealo" nomi), G9 (regulyatsiyalangan kategoriyalar).
+**Bosqich 7 — Yuridik gate (kod emas, lekin production'dan oldin):** 24. G1 (pul oqimi), G2 (fiskal), G3 (e-tijorat ro'yxat), G4 (PII lokalizatsiya), G5 (iste'molchi huquqlari), G6 (merchant oferta), G7 (reklama), G8 (brend — "Dealo" nomi), G9 (regulyatsiyalangan kategoriyalar).
 
 ## 8. Eslatma: nima kodga emas, hujjatga kerak
 
 Dealo hujjatlari bo'yicha, kod yozishdan oldin tayyor bo'lishi kerak (ular Dealo'da DD-00…DD-18):
+
 - PRD gap'larini yopish (27 ta GAP, 7 tasi 🔴 bloklovchi): `GAP-02, 07, 08, 09, 03, 04, 05`.
 - RBAC matritsasi (DD-01).
 - ERD (DD-02) va holat mashinalari (DD-03).
@@ -211,12 +194,12 @@ Dealo hujjatlari bo'yicha, kod yozishdan oldin tayyor bo'lishi kerak (ular Dealo
 
 ## 9. Xulosa jadvali
 
-| Kategoriya | Soni (taxminiy) |
-|---|---|
-| Qo'shiladigan asosiy modullar | 10 (ledger, settlement, payout, refund, breakage, reconciliation, fraud, dispute, OTP, bank hold) |
-| Qo'shiladigan kichik funksiyalar | ~45 (yuqoridagi ro'yxat) |
+| Kategoriya                             | Soni (taxminiy)                                                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Qo'shiladigan asosiy modullar          | 10 (ledger, settlement, payout, refund, breakage, reconciliation, fraud, dispute, OTP, bank hold)           |
+| Qo'shiladigan kichik funksiyalar       | ~45 (yuqoridagi ro'yxat)                                                                                    |
 | Olib tashlanadigan / qisqartiriladigan | ~15 (savatcha, goods, sovg'a, USD, saved, kolleksiya, banner, promo, ko'p shahar, ko'p kategoriya, va h.k.) |
-| Saqlanadigan kuchli tomonlar | Go API, pgx tranzaksiyalar, conditional UPDATE, Next.js, OpenAPI, worker, problem+json |
-| Foydalanuvchi qarori kerak | 11 ta (6-bo'lim) |
+| Saqlanadigan kuchli tomonlar           | Go API, pgx tranzaksiyalar, conditional UPDATE, Next.js, OpenAPI, worker, problem+json                      |
+| Foydalanuvchi qarori kerak             | 11 ta (6-bo'lim)                                                                                            |
 
 > Bu hujjat Dealo'ning spetsifikatsiyasiga asoslangan. Yuridik va soliq talqinlari (G1–G9) yuristlar tomonidan tasdiqlanishi kerak, kod ularni hal qilmaydi.

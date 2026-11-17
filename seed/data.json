@@ -65,12 +65,7 @@
         "en": "Beauty & Wellness"
       },
       "icon": "sparkles",
-      "subcategories": [
-        "salons",
-        "barbers",
-        "spa",
-        "massage"
-      ],
+      "subcategories": ["salons", "barbers", "spa", "massage"],
       "active": true
     },
     {
@@ -81,11 +76,7 @@
         "en": "Food & Drink"
       },
       "icon": "utensils",
-      "subcategories": [
-        "restaurants",
-        "cafes",
-        "set-menus"
-      ],
+      "subcategories": ["restaurants", "cafes", "set-menus"],
       "active": true
     },
     {
@@ -96,12 +87,7 @@
         "en": "Things to Do"
       },
       "icon": "ticket",
-      "subcategories": [
-        "quests",
-        "karting",
-        "bowling",
-        "attractions"
-      ],
+      "subcategories": ["quests", "karting", "bowling", "attractions"],
       "active": true
     },
     {
@@ -112,11 +98,7 @@
         "en": "Health & Fitness"
       },
       "icon": "dumbbell",
-      "subcategories": [
-        "gyms",
-        "yoga",
-        "pools"
-      ],
+      "subcategories": ["gyms", "yoga", "pools"],
       "active": true
     },
     {
@@ -127,10 +109,7 @@
         "en": "Automotive"
       },
       "icon": "car",
-      "subcategories": [
-        "car-wash",
-        "detailing"
-      ],
+      "subcategories": ["car-wash", "detailing"],
       "active": false
     },
     {
@@ -141,10 +120,7 @@
         "en": "Education & Classes"
       },
       "icon": "book",
-      "subcategories": [
-        "masterclasses",
-        "courses"
-      ],
+      "subcategories": ["masterclasses", "courses"],
       "active": false
     },
     {
@@ -155,10 +131,7 @@
         "en": "Events & Entertainment"
       },
       "icon": "theatre",
-      "subcategories": [
-        "theatre",
-        "concerts"
-      ],
+      "subcategories": ["theatre", "concerts"],
       "active": false
     },
     {
@@ -169,10 +142,7 @@
         "en": "Home Services"
       },
       "icon": "home",
-      "subcategories": [
-        "cleaning",
-        "repair"
-      ],
+      "subcategories": ["cleaning", "repair"],
       "active": false
     },
     {
@@ -183,10 +153,7 @@
         "en": "Travel & Hotels"
       },
       "icon": "plane",
-      "subcategories": [
-        "hotels",
-        "excursions"
-      ],
+      "subcategories": ["hotels", "excursions"],
       "active": false
     },
     {
@@ -197,10 +164,7 @@
         "en": "Pickup Goods"
       },
       "icon": "gift",
-      "subcategories": [
-        "flowers",
-        "cakes"
-      ],
+      "subcategories": ["flowers", "cakes"],
       "active": false
     },
     {
@@ -211,9 +175,7 @@
         "en": "Medical (regulated)"
       },
       "icon": "heart",
-      "subcategories": [
-        "diagnostics"
-      ],
+      "subcategories": ["diagnostics"],
       "active": false
     }
   ],

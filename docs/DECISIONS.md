@@ -129,7 +129,6 @@
 9. **Seed reuse.** The seed loader moved to `internal/seed` so integration tests can seed the same
    dataset; `cmd/seed` remains the entry point.
 
-
 ## 2026-10-31 — Phase 4 Identity assumptions
 
 1. **Auth tokens table (migration 00002).** Adds `auth_tokens` (id, user_id, kind `verify_email|reset_password`, unique token_hash, expires_at, used_at, created_at) for single-use verification and reset tokens. This is an addition beyond Section 8, made only for Phase 4. No other Section 8 table changed.
@@ -150,6 +149,7 @@
 16. **Error codes.** Validation failures return 422 `validation_failed` with field codes. A wrong current password returns 422 `current_password_incorrect`. Bodies over 64 KB return 413; unknown JSON fields return 400 `invalid_request`. Rate limits return 429 `rate_limited` with `Retry-After: 900`.
 17. **RBAC.** `AuthAPI.RequireRole(...)` is the middleware for future admin and merchant routes. It is tested but mounted on no route yet, because Phase 4 has none.
 18. **Not done in this slice.** The double-submit CSRF token from Section 14 is not implemented. The cookies use `SameSite=Lax` and every mutating endpoint takes a JSON body, which blocks the usual cross-site form attacks, but the double-submit token is still required before browser-driven mutations ship.
+
 - 2026-10-31: CLAUDE.md is now the working instruction source; the task list is mirrored in docs/TASKS.md. Subagents are not used. One task per turn.
 - 2026-10-31: Web auth uses a same-origin proxy (apps/web/src/app/api/auth/[action]) that forwards to the Go API and re-scopes Set-Cookie to Path=/, so the browser keeps the session on the web origin. Login/register pages built; redirect target is restricted to same-site paths.
 - 2026-10-31: Account pages read data via server-side accountGet (access_token cookie → Bearer). Profile is read-only for now; PATCH /me and PUT /me/password are not wired yet.
@@ -163,6 +163,7 @@
 - 2026-10-31: Media library backend: merchant_media_assets table (migration 00004), local storage adapter (MEDIA_LOCAL_DIR, MEDIA_PUBLIC_BASE), presigned-style upload with image format check; PUT /merchant/media/{id}/content is a contract addition for the local adapter (single application/octet-stream body).
 
 ## Phase B3 merchant deal workflow (backend)
+
 - Review fingerprint lives in `deals.review_fingerprint` (migration 00005). It covers title, descriptions, terms, redemption, highlights, included items, FAQ and option titles/prices/active flags. Stock is excluded so stock-only edits never trigger review.
 - Editing a live deal (scheduled, active, paused, sold_out) with a changed fingerprint sends it to `pending_review`. Editing a rejected deal returns it to `draft`. Submit is allowed only from `draft` or `rejected`, otherwise 409 `invalid_deal_state`.
 - Options are never deleted. Options missing from an update are deactivated, so stock history stays intact.
@@ -207,6 +208,7 @@
 - NOT YET DONE in step 6: QR rotation every 30 seconds and the zaxira code (column added, unused); multi-use set per deal option (every voucher is single-use today); outbox publisher (rows are written, nothing sends them); reconciled status after the bank confirms a payout; support approval endpoint for refunds older than 14 days; dispute resolution endpoint; off-hours and distance fraud rules; the legacy payouts table is unused.
 
 ## Moliya yadrosi: ergashuv qismi (DEALO-FIN-2)
+
 - QR tokeni har 30 soniyada almashadi (`gv2:<id>:<oyna>`, HMAC). Oldingi oyna ham qabul qilinadi (soat farqi uchun); eski token `ErrQRExpired`. Voucher sahifasi har 30 soniyada qayta so'raydi (`qr_token_expires_at`). Web tomoni hali ulanmagan.
 - Zaxira kod: 8 belgi, `XXXX-XXXX`, voucher id va server kalitidan hosil bo'ladi; bazada faqat HMAC saqlanadi (`zaxira_code_hmac`). Merchant `code` yoki zaxira kod bilan topadi (`WithBackupCodes`).
 - Har bir deal variantida `redemptions_allowed` (1..50, default 1). Voucher sotib olinganda nusxa olinadi.
@@ -218,6 +220,7 @@
 - Support roli endi `staffActor` orqali kiradi (faqat tasdiqlash endpointlari uchun).
 
 ## DEALO-ALIGN step 2: API removals (2026-11-02)
+
 - Removed from the contract and the API: cart (`/cart`, `CartInput`), saved deals (`/me/saved-deals`), promo codes (`/promo-codes`), collections (`/collections`), exchange rate (`PublicConfig.exchange_rate`), gifts (`is_gift`, `gift_*`, `is_giftable`), goods (`deal kind`, `fulfillment_status`), shipping (`shipping_address`), email/password endpoints (`/auth/register`, `/auth/login`, `/auth/google`, `/auth/verify-email`, `/auth/forgot-password`, `/auth/reset-password`, `/me/password`).
 - Kept: `/auth/phone/*`, `/auth/refresh`, `/auth/logout`, `/me`, `/homepage` (sections of type `deals` and `categories` only), `/me/recently-viewed`.
 - Migration `00009_dealo_removals.sql` drops the cart, saved, promo, collection, banner, exchange-rate and auth-token tables and the removed columns. Its down step is a no-op because data removal is not reversible.
@@ -226,6 +229,7 @@
 - Web: gift checkbox, `is_gift` in the order body, goods kind, and the promo and collection mocks are removed. The `/coupons` page remains and lists deals in the `coupons` category.
 
 ## Merchant onboarding (FR-01), 2026-11-02
+
 - Registration now requires STIR (9 digits), legal form (`mchj`/`yatt`), tax regime (`vat_payer`/`turnover_tax`), bank MFO (5 digits), bank account (20 digits), responsible person and acceptance of the offer (`contract_version`, time and IP stored). Stable error codes: `invalid_stir`, `stir_taken`, `invalid_org_form`, `invalid_tax_regime`, `invalid_mfo`, `invalid_bank_account`, `contract_not_accepted`.
 - A new business starts as `review_status = draft`. `POST /merchant/submit` (owner only) moves it to `submitted`; a second submit returns 409 `already_submitted`. Existing seeded merchants are `approved`.
 - Not built yet: admin approval and rejection of businesses (`in_review`, `approved`, `rejected`), deal creation gated on approval, bank-change hold (72 h), and staff invitations.
@@ -238,6 +242,7 @@
 - Not decided: whether rejected businesses can see the rejection reason on their status page (the reason is stored, but the merchant API does not return it yet).
 
 ## Fixes after the Claude review, 2026-11-02
+
 - Redemption reversal (PRD FR-05.5): the cashier, owner and manager may reverse only within 10 minutes and only their own redemption for cashiers. After that only support or superadmin can reverse, through POST /admin/vouchers/{id}/reverse, with a reason in the audit trail. Ledger reversal and voucher rollback were already in place.
 - Redemption row numbers never repeat: the next number is the maximum plus one, including reversed rows. The share of the price still follows live uses (GAP-07 floor split, last share takes the remainder).
 - Stock hold is 15 minutes (PRD FR-03.4). Backup codes are 10 characters in two groups of five, Crockford base32 (PRD FR-04.2). The human code stays 8 characters.

@@ -56,9 +56,13 @@ export function MerchantReviewForm({ uploaded }: { uploaded: Uploaded }) {
         <label key={kind} className="grid gap-2">
           <span className="font-semibold">
             {t(`kind.${kind}`)}
-            {OPTIONAL.includes(kind) && <span className="font-normal text-ink-muted"> · {t('optional')}</span>}
+            {OPTIONAL.includes(kind) && (
+              <span className="font-normal text-ink-muted"> · {t('optional')}</span>
+            )}
           </span>
-          <span className="text-small text-ink-muted">{done[kind] ? t('uploaded') : t('notUploaded')}</span>
+          <span className="text-small text-ink-muted">
+            {done[kind] ? t('uploaded') : t('notUploaded')}
+          </span>
           <input
             type="file"
             accept="application/pdf,image/jpeg,image/png"

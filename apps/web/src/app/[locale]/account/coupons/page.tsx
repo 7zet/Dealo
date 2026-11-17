@@ -71,16 +71,22 @@ export default async function CouponsPage({
                 href={`/account/coupons/${voucher.id}`}
                 className="grid gap-1 rounded-card border border-border bg-surface p-4 hover:border-brand"
               >
-                <span className="font-semibold text-ink">{pickText(voucher.deal.title, locale)}</span>
-                <span className="text-sm text-ink-muted">
-                  {voucher.merchant.display_name}
+                <span className="font-semibold text-ink">
+                  {pickText(voucher.deal.title, locale)}
                 </span>
+                <span className="text-sm text-ink-muted">{voucher.merchant.display_name}</span>
                 <span className="font-mono text-sm text-ink">{voucher.code}</span>
                 <span className="text-sm text-ink-muted">
-                  {t('validUntil', { date: format.dateTime(new Date(voucher.valid_until), { dateStyle: 'medium' }) })}
+                  {t('validUntil', {
+                    date: format.dateTime(new Date(voucher.valid_until), { dateStyle: 'medium' }),
+                  })}
                 </span>
                 <span className="text-sm font-semibold text-ink">
-                  {formatMoney(voucher.option.deal_price.amount, locale as Parameters<typeof formatMoney>[1], 'UZS')}
+                  {formatMoney(
+                    voucher.option.deal_price.amount,
+                    locale as Parameters<typeof formatMoney>[1],
+                    'UZS',
+                  )}
                 </span>
               </Link>
             </li>

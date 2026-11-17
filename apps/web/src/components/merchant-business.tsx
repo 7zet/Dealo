@@ -90,9 +90,16 @@ export function BusinessForm({ business, canEdit }: { business: Business; canEdi
         </label>
       ))}
       {!canEdit && <p className="text-sm text-ink-muted">{t('readOnly')}</p>}
-      {message && <p role="status" className="text-sm text-ink">{message}</p>}
+      {message && (
+        <p role="status" className="text-sm text-ink">
+          {message}
+        </p>
+      )}
       {canEdit && (
-        <button type="submit" className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface">
+        <button
+          type="submit"
+          className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+        >
           {t('save')}
         </button>
       )}
@@ -114,7 +121,12 @@ export function LocationsPanel({
   const t = useTranslations('Panel');
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ city_id: cities[0]?.id ?? '', address: '', phone: '', hours: '09:00-18:00' });
+  const [draft, setDraft] = useState({
+    city_id: cities[0]?.id ?? '',
+    address: '',
+    phone: '',
+    hours: '09:00-18:00',
+  });
 
   async function add(event: React.FormEvent) {
     event.preventDefault();
@@ -126,7 +138,15 @@ export function LocationsPanel({
       phone: draft.phone,
       lat: city?.lat ?? 0,
       lng: city?.lng ?? 0,
-      opening_hours: { mon: draft.hours, tue: draft.hours, wed: draft.hours, thu: draft.hours, fri: draft.hours, sat: draft.hours, sun: draft.hours },
+      opening_hours: {
+        mon: draft.hours,
+        tue: draft.hours,
+        wed: draft.hours,
+        thu: draft.hours,
+        fri: draft.hours,
+        sat: draft.hours,
+        sun: draft.hours,
+      },
     });
     if (!result.ok) {
       setMessage(t(problemKey(result.code)));
@@ -147,19 +167,28 @@ export function LocationsPanel({
 
   return (
     <section aria-labelledby="locations-title" className="grid gap-5">
-      <h2 id="locations-title" className="font-semibold">{t('locations')}</h2>
+      <h2 id="locations-title" className="font-semibold">
+        {t('locations')}
+      </h2>
       {locations.length === 0 ? (
         <p className="text-ink-muted">{t('noLocations')}</p>
       ) : (
         <ul className="grid gap-3">
           {locations.map((location) => (
-            <li key={location.id} className="flex items-center justify-between gap-4 rounded-card border border-border bg-surface p-4">
+            <li
+              key={location.id}
+              className="flex items-center justify-between gap-4 rounded-card border border-border bg-surface p-4"
+            >
               <span>
                 <span className="block font-semibold">{pickText(location.city.name, locale)}</span>
                 <span className="text-sm text-ink-muted">{location.address}</span>
               </span>
               {canEdit && (
-                <button type="button" onClick={() => remove(location.id)} className="text-sm font-semibold text-error">
+                <button
+                  type="button"
+                  onClick={() => remove(location.id)}
+                  className="text-sm font-semibold text-error"
+                >
                   {t('remove')}
                 </button>
               )}
@@ -172,30 +201,55 @@ export function LocationsPanel({
           <h3 className="font-semibold">{t('addLocation')}</h3>
           <label className="grid gap-1 text-sm">
             {t('city')}
-            <select className={inputClass} value={draft.city_id} onChange={(e) => setDraft({ ...draft, city_id: e.target.value })}>
+            <select
+              className={inputClass}
+              value={draft.city_id}
+              onChange={(e) => setDraft({ ...draft, city_id: e.target.value })}
+            >
               {cities.map((city) => (
-                <option key={city.id} value={city.id}>{city.label}</option>
+                <option key={city.id} value={city.id}>
+                  {city.label}
+                </option>
               ))}
             </select>
           </label>
           <label className="grid gap-1 text-sm">
             {t('address')}
-            <input className={inputClass} value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} />
+            <input
+              className={inputClass}
+              value={draft.address}
+              onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+            />
           </label>
           <label className="grid gap-1 text-sm">
             {t('phone')}
-            <input className={inputClass} value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+            <input
+              className={inputClass}
+              value={draft.phone}
+              onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+            />
           </label>
           <label className="grid gap-1 text-sm">
             {t('hours')}
-            <input className={inputClass} value={draft.hours} onChange={(e) => setDraft({ ...draft, hours: e.target.value })} />
+            <input
+              className={inputClass}
+              value={draft.hours}
+              onChange={(e) => setDraft({ ...draft, hours: e.target.value })}
+            />
           </label>
-          <button type="submit" className="w-fit rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface">
+          <button
+            type="submit"
+            className="w-fit rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+          >
             {t('addLocation')}
           </button>
         </form>
       )}
-      {message && <p role="alert" className="text-sm text-error">{message}</p>}
+      {message && (
+        <p role="alert" className="text-sm text-error">
+          {message}
+        </p>
+      )}
     </section>
   );
 }

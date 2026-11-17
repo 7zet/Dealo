@@ -8,7 +8,9 @@ async function sellableVoucherDeal() {
   const page = await response.json();
   for (const deal of page.items) {
     if (deal.status !== 'active') continue;
-    const optionIndex = deal.options.findIndex((item) => item.is_active && item.stock_total - item.stock_sold - item.stock_reserved > 0);
+    const optionIndex = deal.options.findIndex(
+      (item) => item.is_active && item.stock_total - item.stock_sold - item.stock_reserved > 0,
+    );
     if (optionIndex >= 0) return { slug: deal.slug, title: deal.title.uz, optionIndex };
   }
   throw new Error('no sellable voucher deal in seed data');
@@ -51,7 +53,9 @@ test('browse → login mid-flow → buy → voucher visible', async ({ page }) =
   // Creating the order and the payment session can take a few seconds on a cold server.
   await expect(page).toHaveURL(/\/uz\/checkout\/mock\//, { timeout: 20000 });
   await page.getByRole('button', { name: /Muvaffaqiyatli to.lash/ }).click();
-  await expect(page.getByRole('heading', { name: /Xarid muvaffaqiyatli/ })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole('heading', { name: /Xarid muvaffaqiyatli/ })).toBeVisible({
+    timeout: 20000,
+  });
 
   // The voucher, with its human code, is visible in the account.
   await page.getByRole('link', { name: /Mening vauchelarim/ }).click();

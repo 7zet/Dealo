@@ -57,7 +57,5 @@ export const publicApi = {
   merchant: (slug: string) =>
     request<MerchantProfile>(`/businesses/${encodeURIComponent(slug)}`, cached(60)),
   suggestions: (query: string) =>
-    request<SuggestionList>(
-      withQuery('/search/suggestions', new URLSearchParams({ q: query })),
-    ),
+    request<SuggestionList>(withQuery('/search/suggestions', new URLSearchParams({ q: query }))),
 };

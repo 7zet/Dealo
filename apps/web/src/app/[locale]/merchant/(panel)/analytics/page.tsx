@@ -41,18 +41,34 @@ export default async function AnalyticsPage({
       <form className="flex flex-wrap items-end gap-4 text-sm" method="get">
         <label className="grid gap-2 font-semibold">
           {t('fromDate')}
-          <input type="date" name="from" defaultValue={from} className="rounded-control-ui border border-border bg-surface px-4 py-3" />
+          <input
+            type="date"
+            name="from"
+            defaultValue={from}
+            className="rounded-control-ui border border-border bg-surface px-4 py-3"
+          />
         </label>
         <label className="grid gap-2 font-semibold">
           {t('toDate')}
-          <input type="date" name="to" defaultValue={to} className="rounded-control-ui border border-border bg-surface px-4 py-3" />
+          <input
+            type="date"
+            name="to"
+            defaultValue={to}
+            className="rounded-control-ui border border-border bg-surface px-4 py-3"
+          />
         </label>
-        <button type="submit" className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface">
+        <button
+          type="submit"
+          className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+        >
           {t('apply')}
         </button>
       </form>
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label={t('grossSales')} value={formatMoney(data.gross_sales.amount, locale as Locale, currency)} />
+        <Kpi
+          label={t('grossSales')}
+          value={formatMoney(data.gross_sales.amount, locale as Locale, currency)}
+        />
         <Kpi label={t('vouchersSold')} value={String(data.vouchers_sold)} />
         <Kpi label={t('vouchersRedeemed')} value={String(data.vouchers_redeemed)} />
         <Kpi label={t('redemptionRate')} value={`${percent}%`} />
@@ -64,9 +80,17 @@ export default async function AnalyticsPage({
         ) : (
           <ul className="grid gap-2">
             {data.sales.map((point) => (
-              <li key={point.date} className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm">
-                <span className="text-ink-muted">{format.dateTime(new Date(point.date), { dateStyle: 'medium' })}</span>
-                <span className="h-3 rounded-full bg-brand" style={{ width: `${Math.round((point.value / peak) * 100)}%` }} />
+              <li
+                key={point.date}
+                className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm"
+              >
+                <span className="text-ink-muted">
+                  {format.dateTime(new Date(point.date), { dateStyle: 'medium' })}
+                </span>
+                <span
+                  className="h-3 rounded-full bg-brand"
+                  style={{ width: `${Math.round((point.value / peak) * 100)}%` }}
+                />
                 <span>{formatMoney(point.value, locale as Locale, currency)}</span>
               </li>
             ))}

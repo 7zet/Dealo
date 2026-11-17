@@ -34,16 +34,24 @@ export function BuyerNotifications({ items }: { items: Notification[] }) {
   }
 
   return (
-    <section aria-labelledby="notifications-title" className="grid gap-3 rounded-card border border-border bg-surface p-4">
+    <section
+      aria-labelledby="notifications-title"
+      className="grid gap-3 rounded-card border border-border bg-surface p-4"
+    >
       <h2 id="notifications-title" className="text-lead font-semibold">
         {t('title')}
       </h2>
       <ul className="grid gap-3">
         {items.map((item) => (
-          <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 text-small">
+          <li
+            key={item.id}
+            className="flex flex-wrap items-center justify-between gap-3 text-small"
+          >
             <span>
               {t('redeemed', { merchant: item.merchant_name })}
-              <span className="ml-2 text-ink-muted">{new Date(item.created_at).toLocaleString()}</span>
+              <span className="ml-2 text-ink-muted">
+                {new Date(item.created_at).toLocaleString()}
+              </span>
             </span>
             {item.voucher_id && (
               <button
