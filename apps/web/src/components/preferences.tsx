@@ -30,7 +30,7 @@ export function CurrencySelect({ value }: { value: Currency }) {
   );
 }
 
-export function LanguageSelect({ value }: { value: Locale }) {
+export function LanguageSelect({ value, className }: { value: Locale; className?: string }) {
   const t = useTranslations('Navigation');
   const names = useTranslations('Locale');
   const router = useRouter();
@@ -38,7 +38,7 @@ export function LanguageSelect({ value }: { value: Locale }) {
   return (
     <select
       aria-label={t('language')}
-      className="rounded-control-ui border bg-surface px-2 py-2 text-small"
+      className={className ?? 'rounded-control-ui border bg-surface px-2 py-2 text-small'}
       value={value}
       onChange={(event) => router.replace(pathname, { locale: event.target.value as Locale })}
     >

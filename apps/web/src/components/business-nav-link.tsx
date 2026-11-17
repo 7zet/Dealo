@@ -7,7 +7,13 @@ import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 
 /** Shows the business-owner entry only to accounts with a merchant role. Everyone else sees no trace of it. */
-export function BusinessNavLink({ variant = 'icon' }: { variant?: 'icon' | 'text' }) {
+export function BusinessNavLink({
+  variant = 'icon',
+  className,
+}: {
+  variant?: 'icon' | 'text';
+  className?: string;
+}) {
   const t = useTranslations('Navigation');
   const [isMerchant, setIsMerchant] = useState(false);
 
@@ -34,7 +40,10 @@ export function BusinessNavLink({ variant = 'icon' }: { variant?: 'icon' | 'text
   }
   return (
     <Link
-      className="hidden items-center gap-2 rounded-control-ui px-3 py-2 text-small font-semibold text-brand hover:bg-page sm:flex"
+      className={
+        className ??
+        'hidden items-center gap-2 rounded-control-ui px-3 py-2 text-small font-semibold text-brand hover:bg-page sm:flex'
+      }
       href="/merchant/dashboard"
     >
       <Briefcase aria-hidden="true" size={18} />

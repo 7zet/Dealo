@@ -1,162 +1,176 @@
 import { publicApi } from '@grupon/api-client';
-import { localized, type Locale } from '@grupon/config';
-import { ArrowRight, Search, Sparkles } from 'lucide-react';
-import Image from 'next/image';
+import { brandConfig, localized, type Locale } from '@grupon/config';
+import { ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { DealGrid } from '@/components/deal-grid';
+import { CategoryTiles } from '@/components/category-tiles';
+import { CursorGlow } from '@/components/cursor-glow';
+import { DealCarousel } from '@/components/deal-carousel';
+import { InfiniteFeed } from '@/components/infinite-feed';
 import { HeroMotion } from '@/components/hero-motion';
+import { SearchBox } from '@/components/search-box';
 import { SectionHeading } from '@/components/section-heading';
 import { Link } from '@/i18n/navigation';
 import { getCurrency } from '@/lib/preferences';
 
-const homeRenderTime = Date.now();
+const RAIL_SIZE = '12';
+const FEED_SIZE = 24;
+
+/** Splits "Great experiences. Better prices." so the second sentence can be highlighted. */
+function splitTitle(title: string): [string, string] {
+  const index = title.indexOf('. ');
+  return index === -1 ? [title, ''] : [title.slice(0, index + 1), title.slice(index + 2)];
+}
 
 export default async function HomePage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('Home');
-  const [config, homepage, allDeals, currency] = await Promise.all([
-    publicApi.config(),
-    publicApi.homepage('tashkent'),
-    publicApi.deals(new URLSearchParams({ city: 'tashkent', sort: 'popular', page: '1' })),
+  const nav = await getTranslations('Navigation');
+  const deals = (params: Record<string, string>) =>
+    publicApi.deals(new URLSearchParams({ city: 'tashkent', ...params }));
+  const config = await publicApi.config();
+  const categories = config.categories.filter((category) => category.searchable);
+  const feedQuery = { city: 'tashkent', sort: 'recommended', page_size: String(FEED_SIZE) };
+  const [trending, endingSoon, newest, feed, currency] = await Promise.all([
+    Promise.all(
+      categories.map((category) =>
+        deals({ category: category.slug, sort: 'popular', page_size: RAIL_SIZE }),
+      ),
+    ),
+    deals({ ending_soon: 'true', sort: 'ending_soon', page_size: RAIL_SIZE }),
+    deals({ sort: 'newest', page_size: RAIL_SIZE }),
+    publicApi.deals(new URLSearchParams(feedQuery)),
     getCurrency(),
   ]);
-  const featured =
-    homepage.sections.find((section) => section.key === 'featured')?.deals ??
-    allDeals.items.slice(0, 8);
-  const popular =
-    homepage.sections.find((section) => section.key === 'popular')?.deals ??
-    allDeals.items.slice(8, 16);
-  const limited = allDeals.items
-    .filter((deal) => new Date(deal.ends_at).getTime() < homeRenderTime + 3 * 86400000)
-    .slice(0, 4);
+  const [titleLead, titleAccent] = splitTitle(t('title'));
+
   return (
     <>
-      <section className="overflow-hidden border-b bg-surface">
+      <section className="relative overflow-hidden bg-night text-surface">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-40 -top-40 size-[34rem] rounded-full bg-[radial-gradient(circle,rgb(255_122_26/28%),transparent_65%)]"
+        />
+        <svg
+          aria-hidden
+          className="hero-streaks pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[60%] md:block"
+          viewBox="0 0 800 400"
+          preserveAspectRatio="none"
+        >
+          {[
+            ['#ff6a00', 0],
+            ['#ff8a1f', 14],
+            ['#ffb347', 28],
+            ['#ffd27a', 42],
+          ].map(([color, offset]) => (
+            <g key={offset}>
+              <path
+                d={`M ${-40 + Number(offset)} ${430} C 260 ${380 - Number(offset)}, 420 ${120 + Number(offset)}, 840 ${-20 + Number(offset)}`}
+                stroke={String(color)}
+                strokeOpacity="0.55"
+                strokeWidth="9"
+              />
+              <path
+                className="flow"
+                d={`M ${-40 + Number(offset)} ${430} C 260 ${380 - Number(offset)}, 420 ${120 + Number(offset)}, 840 ${-20 + Number(offset)}`}
+                stroke="#fff3e0"
+                strokeOpacity="0.9"
+                strokeWidth="3"
+                style={{ animationDelay: `${Number(offset) / 10}s` }}
+              />
+            </g>
+          ))}
+        </svg>
         <HeroMotion>
-          <div className="mx-auto grid max-w-layout items-center gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1.05fr_.95fr] lg:px-8">
+          <div className="relative mx-auto grid max-w-layout items-center gap-8 px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-6">
             <div>
-              <p
-                data-hero
-                className="mb-4 text-small font-semibold uppercase tracking-widest text-brand"
-              >
+              <p data-hero className="text-label font-bold uppercase tracking-[0.3em] text-neon">
                 {t('eyebrow')}
               </p>
               <h1
                 data-hero
-                className="max-w-3xl text-title font-bold tracking-tight sm:text-display"
+                className="mt-3 text-[clamp(3rem,8vw,6.5rem)] font-extrabold leading-[0.9] tracking-[-0.04em]"
               >
-                {t('title')}
+                {brandConfig.name}
+                <span className="text-neon drop-shadow-[0_0_24px_rgb(255_122_26/70%)]">.</span>
               </h1>
-              <p data-hero className="mt-5 max-w-xl text-lead leading-8 text-ink-muted">
-                {t('description')}
+              <p
+                data-hero
+                className="mt-4 text-[clamp(1.25rem,2.2vw,1.875rem)] font-light leading-tight"
+              >
+                {titleLead}{' '}
+                {titleAccent && <span className="font-bold text-neon">{titleAccent}</span>}
               </p>
-              <form data-hero action={`/${locale}/search`} className="relative mt-8 max-w-xl">
-                <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-ink-muted" />
-                <input
-                  name="q"
-                  className="h-14 w-full rounded-card-ui border bg-page pl-12 pr-32 shadow-floating-ui"
-                  placeholder={(await getTranslations('Navigation'))('searchPlaceholder')}
-                />
-                <button
-                  className="absolute bottom-1.5 right-1.5 top-1.5 rounded-control-ui bg-deal px-5 text-small font-semibold text-surface"
-                  type="submit"
-                >
-                  {(await getTranslations('Navigation'))('search')}
-                </button>
-              </form>
-              <div data-hero className="mt-5 flex flex-wrap items-center gap-2">
-                <span className="text-small text-ink-muted">{t('searches')}:</span>
-                {config.categories.slice(1, 5).map((category) => (
-                  <Link
-                    className="rounded-round-ui border bg-surface px-3 py-1.5 text-small hover:bg-brand-tint hover:text-brand"
-                    href={`/tashkent/${category.slug}`}
-                    key={category.id}
-                  >
-                    {localized(category.name, locale)}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div
-              data-hero
-              className="relative hidden aspect-[4/3] overflow-hidden rounded-panel-ui lg:block"
-            >
-              <Image
-                className="object-cover"
-                src={featured[0]!.media[0]!.url}
-                alt={localized(featured[0]!.media[0]!.alt, locale)}
-                fill
-                priority
-                sizes="45vw"
-              />
-              <div className="absolute bottom-5 left-5 flex items-center gap-3 rounded-card-ui bg-surface/95 px-4 py-3 shadow-floating-ui">
-                <Sparkles className="text-brand" />
-                <span className="font-semibold">{localized(featured[0]!.title, locale)}</span>
+              <div data-hero id="hero-search" className="mt-6 max-w-2xl">
+                <SearchBox tone="dark" size="lg" submitLabel={nav('search')} />
               </div>
             </div>
           </div>
         </HeroMotion>
       </section>
-      <div className="mx-auto max-w-layout space-y-18 px-4 py-14 sm:px-6 lg:px-8">
-        <section>
-          <SectionHeading title={t('featured')} href="/tashkent" />
-          <DealGrid deals={featured} locale={locale} currency={currency} />
-        </section>
-        <section>
-          <SectionHeading title={t('popular')} href="/tashkent?sort=popular" />
-          <DealGrid deals={popular} locale={locale} currency={currency} />
-        </section>
-        <section>
-          <SectionHeading title={t('categories')} />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {config.categories.map((category, index) => (
-              <Link
-                className="group relative min-h-36 overflow-hidden rounded-card-ui border bg-surface p-5"
-                href={`/${category.slug}`}
-                key={category.id}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-tint to-surface opacity-70" />
-                <div className="relative flex h-full flex-col justify-between">
-                  <span className="text-title-small font-bold text-brand/20">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-semibold">{localized(category.name, locale)}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-        {limited.length > 0 && (
+
+      <CursorGlow>
+        <div className="mx-auto max-w-layout space-y-12 px-4 py-10 sm:px-6 lg:px-8">
+          <CategoryTiles categories={categories} locale={locale} />
+          {categories.map((category, index) => {
+            const items = trending[index]?.items ?? [];
+            if (!items.length) return null;
+            return (
+              <section key={category.id}>
+                <SectionHeading
+                  title={t('trendingIn', { category: localized(category.name, locale) })}
+                  href={`/tashkent/${category.slug}?sort=popular`}
+                />
+                <DealCarousel deals={items} locale={locale} currency={currency} />
+              </section>
+            );
+          })}
+          {endingSoon.items.length > 0 && (
+            <section>
+              <SectionHeading
+                title={t('limited')}
+                href="/tashkent?endingSoon=true&sort=ending_soon"
+              />
+              <DealCarousel deals={endingSoon.items} locale={locale} currency={currency} />
+            </section>
+          )}
+          {newest.items.length > 0 && (
+            <section>
+              <SectionHeading title={t('newest')} href="/tashkent?sort=newest" />
+              <DealCarousel deals={newest.items} locale={locale} currency={currency} />
+            </section>
+          )}
           <section>
-            <SectionHeading title={t('limited')} href="/tashkent?endingSoon=true" />
-            <DealGrid deals={limited} locale={locale} currency={currency} />
+            <SectionHeading title={t('allDeals')} href="/tashkent" />
+            <InfiniteFeed
+              initial={feed.items}
+              total={feed.total}
+              pageSize={feed.page_size}
+              query={feedQuery}
+              locale={locale}
+              currency={currency}
+            />
           </section>
-        )}
-        <section>
-          <SectionHeading title={t('recommended')} />
-          <DealGrid deals={allDeals.items.slice(4, 12)} locale={locale} currency={currency} />
-        </section>
-        <section>
-          <SectionHeading title={t('recent')} />
-          <DealGrid deals={allDeals.items.slice(16, 20)} locale={locale} currency={currency} />
-        </section>
-        <section className="grid overflow-hidden rounded-panel-ui bg-brand text-surface lg:grid-cols-2">
-          <div className="p-8 sm:p-12">
-            <p className="text-small font-semibold uppercase tracking-widest text-surface/70">
-              {t('merchantTitle')}
-            </p>
-            <h2 className="mt-3 text-title-small font-bold">{t('merchantText')}</h2>
-            <Link
-              className="mt-7 inline-flex items-center gap-2 rounded-control-ui bg-surface px-5 py-3 font-semibold text-brand"
-              href="/merchant"
-            >
-              {t('merchantCta')}
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-        </section>
-      </div>
+          <section className="relative overflow-hidden rounded-panel-ui bg-night text-surface">
+            <div className="absolute -bottom-24 -right-24 size-96 rounded-full bg-[radial-gradient(circle,rgb(255_122_26/45%),transparent_65%)]" />
+            <div className="relative p-8 sm:p-12">
+              <p className="text-label font-bold uppercase tracking-[0.3em] text-neon">
+                {t('merchantTitle')}
+              </p>
+              <h2 className="mt-3 max-w-2xl text-title-small font-extrabold">
+                {t('merchantText')}
+              </h2>
+              <Link
+                className="mt-7 inline-flex items-center gap-2 rounded-round-ui bg-brand px-6 py-3 font-bold text-surface shadow-[0_0_24px_rgb(255_122_26/55%)] transition hover:bg-brand-hover"
+                href="/merchant"
+              >
+                {t('merchantCta')}
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          </section>
+        </div>
+      </CursorGlow>
     </>
   );
 }

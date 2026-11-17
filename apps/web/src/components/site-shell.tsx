@@ -1,12 +1,11 @@
 import type { PublicConfig } from '@grupon/api-client';
-import { brandConfig, localized, type Currency, type Locale } from '@grupon/config';
-import { Home, Menu, Search, Ticket, UserRound } from 'lucide-react';
+import { brandConfig, type Currency, type Locale } from '@grupon/config';
+import { Home, Search, Ticket, UserRound } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import type { PropsWithChildren } from 'react';
 import { Link } from '@/i18n/navigation';
 import { BusinessNavLink } from './business-nav-link';
-import { LanguageSelect } from './preferences';
-import { SearchBox } from './search-box';
+import { SiteHeader } from './site-header';
 
 type Props = PropsWithChildren<{ config: PublicConfig; locale: Locale; currency: Currency }>;
 
@@ -21,79 +20,7 @@ export async function SiteShell({ children, config, locale }: Props) {
       >
         {t('skipToContent')}
       </a>
-      <header className="sticky top-0 z-40 border-b bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-18 max-w-layout items-center gap-3 px-4 sm:px-6 lg:px-8">
-          <details className="group lg:hidden">
-            <summary className="list-none rounded-control-ui p-2" aria-label={t('menu')}>
-              <Menu />
-            </summary>
-            <nav className="fixed inset-x-0 top-18 max-h-[calc(100dvh-4.5rem)] overflow-auto border-b bg-surface p-4 shadow-floating-ui">
-              {config.categories.map((category) => (
-                <Link
-                  className="block border-b px-2 py-3 font-semibold"
-                  href={`/${category.slug}`}
-                  key={category.id}
-                >
-                  {localized(category.name, locale)}
-                </Link>
-              ))}
-            </nav>
-          </details>
-          <Link className="shrink-0 text-subtitle font-bold tracking-tight text-brand" href="/">
-            {brandConfig.name}
-          </Link>
-          <SearchBox />
-          <div className="ml-auto flex items-center gap-1">
-            <select
-              aria-label={t('city')}
-              className="hidden rounded-control-ui border bg-surface px-2 py-2 text-small xl:block"
-              defaultValue="tashkent"
-            >
-              {config.cities.map((city) => (
-                <option value={city.slug} key={city.id}>
-                  {localized(city.name, locale)}
-                </option>
-              ))}
-            </select>
-            <LanguageSelect value={locale} />
-            <BusinessNavLink />
-            <Link
-              className="hidden rounded-control-ui p-2 text-ink-muted hover:bg-page hover:text-brand sm:block"
-              href="/login"
-              aria-label={t('account')}
-            >
-              <UserRound />
-            </Link>
-          </div>
-        </div>
-        <nav className="hidden border-t lg:block">
-          <div className="mx-auto flex max-w-layout items-center gap-6 overflow-x-auto px-8 py-3">
-            {config.categories.map((category) => (
-              <div className="group relative shrink-0" key={category.id}>
-                <Link
-                  className="text-small font-semibold text-ink-muted hover:text-brand"
-                  href={`/${category.slug}`}
-                >
-                  {localized(category.name, locale)}
-                </Link>
-                {category.subcategories.length > 0 && (
-                  <div className="invisible absolute left-0 top-full z-50 mt-3 grid min-w-64 translate-y-2 gap-1 rounded-card-ui border bg-surface p-3 opacity-0 shadow-floating-ui transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                    {category.subcategories.map((sub) => (
-                      <Link
-                        className="rounded-control-ui px-3 py-2 text-small hover:bg-brand-tint hover:text-brand"
-                        href={`/tashkent/${category.slug}?subcategory=${sub.slug}`}
-                        key={sub.id}
-                      >
-                        {localized(sub.name, locale)}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </nav>
-      </header>
+      <SiteHeader categories={config.categories} cities={config.cities} locale={locale} />
       <main id="main-content" className="min-h-[70dvh]">
         {children}
       </main>

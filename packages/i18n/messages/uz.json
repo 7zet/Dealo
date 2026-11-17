@@ -18,7 +18,14 @@
     "menu": "Menyu",
     "close": "Yopish",
     "skipToContent": "Asosiy qismga o‘tish",
-    "sell": "Biznesingizni joylang"
+    "sell": "Biznesingizni joylang",
+    "addBusiness": "Biznesingizni qo‘shing",
+    "app": "Ilova",
+    "soon": "Tez orada",
+    "notifications": "Bildirishnomalar",
+    "notificationsEmpty": "Hozircha bildirishnoma yo‘q",
+    "notificationsLogin": "Bildirishnomalarni ko‘rish uchun tizimga kiring",
+    "signIn": "Kirish"
   },
   "Home": {
     "eyebrow": "Shahringizdan ko‘proq bahra oling",
@@ -28,13 +35,20 @@
     "featured": "Tanlangan takliflar",
     "trending": "Ommabop kuponlar",
     "popular": "Yaqin atrofda mashhur",
+    "allDeals": "Barcha takliflar",
     "categories": "Kategoriyalar",
     "limited": "Muddati tugayotgan takliflar",
     "recommended": "Siz uchun tavsiyalar",
     "recent": "Yaqinda ko‘rilgan",
     "merchantTitle": "Mahalliy biznesingizni rivojlantiring",
     "merchantText": "Maqsadlaringizga mos taklif bilan yangi mijozlarga yetib boring.",
-    "merchantCta": "Sotishni boshlash"
+    "merchantCta": "Sotishni boshlash",
+    "trendingIn": "Trendda: {category}",
+    "newest": "Yangi qo‘shilganlar",
+    "feedLoading": "Yuklanmoqda…",
+    "feedEnd": "Hozircha hammasi shu",
+    "previous": "Oldingi",
+    "next": "Keyingi"
   },
   "Common": {
     "viewAll": "Barchasini ko‘rish",

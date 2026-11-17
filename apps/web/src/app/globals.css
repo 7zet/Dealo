@@ -7,3 +7,194 @@
   background: var(--brand-tint);
   color: var(--ink);
 }
+
+/* ---------- Neon system ---------- */
+
+/* Registered so the glow centre glides instead of jumping when the cursor moves. */
+@property --mx {
+  syntax: '<length-percentage>';
+  inherits: true;
+  initial-value: 50%;
+}
+@property --my {
+  syntax: '<length-percentage>';
+  inherits: true;
+  initial-value: 50%;
+}
+
+/* Responsive deal feed: two columns on phones, then as many ~15rem columns as the screen holds. */
+.deal-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .deal-grid {
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
+}
+
+.neon-card {
+  position: relative;
+  isolation: isolate;
+  transition:
+    --mx 0.35s ease-out,
+    --my 0.35s ease-out;
+}
+/* Soft halo behind the card: always faintly visible, brighter and cursor-led on hover. */
+.neon-card::before {
+  content: '';
+  position: absolute;
+  inset: -0.875rem;
+  z-index: -1;
+  border-radius: calc(var(--radius-card) + 0.875rem);
+  background:
+    radial-gradient(45% 45% at var(--mx) var(--my), rgb(255 106 0 / 85%), transparent 70%),
+    radial-gradient(70% 70% at 50% 60%, rgb(255 140 40 / 45%), transparent 75%);
+  filter: blur(1.375rem);
+  opacity: 0.45;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+.neon-card:hover::before,
+.neon-card:focus-within::before {
+  opacity: 1;
+}
+/* Neon rim that lights up where the cursor is. */
+.neon-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: var(--radius-card);
+  padding: 2px;
+  background: radial-gradient(
+    16rem circle at var(--mx) var(--my),
+    #ffd29a,
+    var(--neon) 30%,
+    rgb(255 106 0 / 25%) 60%,
+    transparent 80%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.neon-card:hover::after,
+.neon-card:focus-within::after {
+  opacity: 1;
+}
+
+/* The card face itself: a faint orange underglow at rest, a clear neon bloom on hover. */
+.neon-card > a {
+  box-shadow: 0 0.75rem 1.75rem -1rem rgb(255 106 0 / 35%);
+  transition:
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
+}
+.neon-card:hover > a,
+.neon-card:focus-within > a {
+  border-color: rgb(255 122 26 / 45%);
+  box-shadow:
+    0 0 0 1px rgb(255 122 26 / 25%),
+    0 1.25rem 3rem -0.75rem rgb(255 106 0 / 55%),
+    0 0 2.5rem -0.5rem rgb(255 150 50 / 45%);
+}
+
+/* Page-level light that trails the cursor behind the feed. */
+.cursor-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.cursor-glow > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 38rem;
+  height: 38rem;
+  margin: -19rem 0 0 -19rem;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgb(255 122 26 / 16%),
+    rgb(255 179 71 / 6%) 40%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: transform;
+}
+
+/* Hero neon streaks */
+.hero-streaks path {
+  fill: none;
+  stroke-linecap: round;
+}
+@keyframes streak-flow {
+  to {
+    stroke-dashoffset: -400;
+  }
+}
+.hero-streaks .flow {
+  stroke-dasharray: 60 340;
+  animation: streak-flow 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-card {
+    transition: none;
+  }
+  .cursor-glow {
+    display: none;
+  }
+}
+
+/* Horizontal deal rows. Visible cards: ~1.7 on phones (the next one peeks in), then 3, 4 and 5. */
+.deal-rail {
+  --rail-gap: 0.875rem;
+  --rail-count: 1.7;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--rail-count) - 1) * var(--rail-gap)) / var(--rail-count));
+  gap: var(--rail-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* Room for the neon halo, which would otherwise be clipped by the scroller. */
+  margin: -1rem -1rem -1.75rem;
+  padding: 1rem 1rem 1.75rem;
+  scroll-padding-inline: 1rem;
+}
+.deal-rail::-webkit-scrollbar {
+  display: none;
+}
+.deal-rail-item {
+  scroll-snap-align: start;
+}
+@media (min-width: 640px) {
+  .deal-rail {
+    --rail-gap: 1.5rem;
+    --rail-count: 3;
+  }
+}
+@media (min-width: 1024px) {
+  .deal-rail {
+    --rail-count: 4;
+  }
+}
+@media (min-width: 1280px) {
+  .deal-rail {
+    --rail-count: 5;
+  }
+}
