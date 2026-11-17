@@ -1,25 +1,31 @@
 :root {
   color-scheme: light;
 
-  --brand: #26328c;
-  --brand-hover: #1e2870;
-  --brand-tint: #eef0fa;
-  --deal: #dc2626;
-  --deal-hover: #b91c1c;
-  --deal-tint: #feecec;
+  --brand: #ff6a00;
+  --brand-hover: #e85d00;
+  --brand-tint: #fff1e6;
+  --deal: #ff6a00;
+  --deal-hover: #e85d00;
+  --deal-tint: #fff1e6;
   --save: #15803d;
   --save-tint: #ecfdf3;
-  --rating: #f59e0b;
-  --error: #9f1239;
-  --error-tint: #fff1f2;
-  --ink: #18181b;
-  --ink-muted: #71717a;
-  --ink-faint: #a1a1aa;
-  --border: #e7e5e4;
-  --bg: #fafaf9;
+  --rating: #ffb020;
+  --error: #b42318;
+  --error-tint: #fef3f2;
+  --ink: #111111;
+  --ink-muted: #6b6b6b;
+  --ink-faint: #a3a3a3;
+  --border: #ebebea;
+  --bg: #f4f4f2;
   --surface: #ffffff;
+  --night: #0e0e0f;
+  --night-soft: #1a1a1c;
+  --neon: #ff7a1a;
+  --neon-soft: #ffb347;
 
-  --font-family-sans: var(--font-app), 'Inter', 'Arial', sans-serif;
+  --font-family-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI Variable',
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-size-12: 0.75rem;
   --font-size-14: 0.875rem;
   --font-size-16: 1rem;
@@ -30,13 +36,13 @@
   --font-size-48: 3rem;
 
   --space-unit: 0.25rem;
-  --layout-max-width: 72rem;
+  --layout-max-width: 100rem;
   --header-height: 4.5rem;
   --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
-  --radius-panel: 1rem;
+  --radius-card: 1.25rem;
+  --radius-panel: 1.75rem;
   --radius-round: 9999px;
-  --shadow-floating: 0 0.5rem 1.875rem rgb(24 24 27 / 8%);
+  --shadow-floating: 0 0.5rem 1.875rem rgb(17 17 17 / 8%);
 }
 
 @theme inline {
@@ -57,6 +63,10 @@
   --color-border: var(--border);
   --color-page: var(--bg);
   --color-surface: var(--surface);
+  --color-night: var(--night);
+  --color-night-soft: var(--night-soft);
+  --color-neon: var(--neon);
+  --color-neon-soft: var(--neon-soft);
 
   --font-sans: var(--font-family-sans);
   --spacing: var(--space-unit);

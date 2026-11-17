@@ -28,7 +28,7 @@ export async function DealGrid({
       </div>
     );
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="deal-grid">
       {deals.map((deal) => (
         <DealCard key={deal.id} deal={deal} locale={locale} currency={currency} />
       ))}

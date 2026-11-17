@@ -1,6 +1,6 @@
 import { publicApi } from '@grupon/api-client';
 import { brandConfig, isCurrency, isLocale, locales } from '@grupon/config';
-import { BaseLayout, appFont } from '@grupon/ui';
+import { BaseLayout } from '@grupon/ui';
 import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
@@ -52,7 +52,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
 
   return (
     <html lang={locale}>
-      <body className={appFont.variable}>
+      <body>
         <NextIntlClientProvider messages={messages}>
           <Providers>
             <BaseLayout>

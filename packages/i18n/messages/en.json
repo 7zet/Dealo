@@ -18,7 +18,14 @@
     "menu": "Menu",
     "close": "Close",
     "skipToContent": "Skip to main content",
-    "sell": "List your business"
+    "sell": "List your business",
+    "addBusiness": "Add your business",
+    "app": "App",
+    "soon": "Soon",
+    "notifications": "Notifications",
+    "notificationsEmpty": "No notifications yet",
+    "notificationsLogin": "Sign in to see your notifications",
+    "signIn": "Sign in"
   },
   "Home": {
     "eyebrow": "Make more of your city",
@@ -28,13 +35,20 @@
     "featured": "Featured deals",
     "trending": "Trending coupons",
     "popular": "Popular near you",
+    "allDeals": "All deals",
     "categories": "Explore categories",
     "limited": "Limited-time deals",
     "recommended": "Recommended for you",
     "recent": "Recently viewed",
     "merchantTitle": "Grow your local business",
     "merchantText": "Reach new customers with a deal built around your goals.",
-    "merchantCta": "Start selling"
+    "merchantCta": "Start selling",
+    "trendingIn": "Trending in {category}",
+    "newest": "Just added",
+    "feedLoading": "Loading…",
+    "feedEnd": "You’ve seen everything for now",
+    "previous": "Previous",
+    "next": "Next"
   },
   "Common": {
     "viewAll": "View all",
