@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/grupon/grupon/services/api/internal/domain/identity"
+	"github.com/grupon/grupon/services/api/internal/domain/merchant"
 	"github.com/grupon/grupon/services/api/internal/http/gen"
 )
 
@@ -34,8 +37,9 @@ const (
 type AuthOptions struct {
 	// SecureCookies sets the Secure attribute. It is enabled outside development.
 	SecureCookies bool
-	// TrustProxyHeaders reads the client address from X-Real-IP or X-Forwarded-For.
-	TrustProxyHeaders bool
+	// TrustedProxies are the peers whose X-Forwarded-For and X-Real-IP headers are believed. Requests
+	// from other peers are keyed by their own address, so a client cannot pick its rate-limit bucket.
+	TrustedProxies []netip.Prefix
 	// RefreshTokenTTL sets the refresh cookie lifetime.
 	RefreshTokenTTL time.Duration
 }
@@ -79,42 +83,65 @@ func (a *AuthAPI) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetMe returns the current profile.
+// GetMe returns the current profile with the merchant workspaces of the user.
 func (a *AuthAPI) GetMe(w http.ResponseWriter, r *http.Request) {
 	account, ok := a.authenticate(w, r)
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, toUserResponse(account))
+	memberships, err := a.identity.Memberships(r.Context(), account.ID)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	user := toUserResponse(account)
+	items := make([]gen.MerchantMembership, 0, len(memberships))
+	for _, membership := range memberships {
+		granted := merchant.PermissionsFor(string(membership.Role))
+		permissions := make([]gen.MerchantPermission, 0, len(granted))
+		for _, permission := range granted {
+			permissions = append(permissions, gen.MerchantPermission(permission))
+		}
+		items = append(items, gen.MerchantMembership{
+			Permissions:  permissions,
+			MerchantId:   gen.Uuid(membership.MerchantID),
+			MerchantName: membership.MerchantName,
+			MerchantSlug: membership.MerchantSlug,
+			Role:         gen.MerchantMembershipRole(membership.Role),
+			ReviewStatus: gen.MerchantMembershipReviewStatus(membership.ReviewStatus),
+		})
+	}
+	user.Memberships = &items
+	writeJSON(w, http.StatusOK, user)
 }
 
-// UpdateMe updates profile preferences. An explicit null phone clears the phone number.
+// UpdateMe updates profile preferences. The phone is the OTP sign-in identity, so a request that
+// tries to change it is rejected with a stable code instead of the generic unknown-field error.
 func (a *AuthAPI) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	account, ok := a.authenticate(w, r)
 	if !ok {
 		return
 	}
-	raw, ok := decodeBody(w, r, &gen.UpdateProfileRequest{})
+	raw, ok := readBody(w, r)
 	if !ok {
 		return
 	}
-	var body gen.UpdateProfileRequest
-	if err := json.Unmarshal(raw, &body); err != nil {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
 		writeProblem(w, r, http.StatusBadRequest, "invalid_request", nil, nil)
 		return
 	}
-	var fields map[string]json.RawMessage
-	_ = json.Unmarshal(raw, &fields)
+	if _, present := fields["phone"]; present {
+		writeProblem(w, r, http.StatusUnprocessableEntity, "phone_change_requires_verification", nil,
+			map[string][]string{"phone": {"phone_change_requires_verification"}})
+		return
+	}
+	var body gen.UpdateProfileRequest
+	if !decodeStrict(w, r, raw, &body) {
+		return
+	}
 
 	update := identity.ProfileUpdate{Name: body.Name}
-	if phone, present := fields["phone"]; present {
-		if string(phone) == "null" {
-			empty := ""
-			update.Phone = &empty
-		} else {
-			update.Phone = body.Phone
-		}
-	}
 	if body.Locale != nil {
 		locale := string(*body.Locale)
 		update.Locale = &locale
@@ -123,7 +150,7 @@ func (a *AuthAPI) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		currency := string(*body.Currency)
 		update.Currency = &currency
 	}
-	if update.Name == nil && update.Phone == nil && update.Locale == nil && update.Currency == nil {
+	if update.Name == nil && update.Locale == nil && update.Currency == nil {
 		writeProblem(w, r, http.StatusBadRequest, "invalid_request", nil, nil)
 		return
 	}
@@ -222,7 +249,7 @@ func (a *AuthAPI) meta(r *http.Request) identity.RequestMeta {
 		userAgent = userAgent[:maxUserAgentBytes]
 	}
 	return identity.RequestMeta{
-		IP:        clientIP(r, a.options.TrustProxyHeaders),
+		IP:        clientIP(r, a.options.TrustedProxies),
 		UserAgent: userAgent,
 	}
 }
@@ -235,8 +262,7 @@ func (a *AuthAPI) fail(w http.ResponseWriter, r *http.Request, err error) {
 		writeProblem(w, r, http.StatusUnprocessableEntity, "validation_failed", nil,
 			map[string][]string{validation.Field: {validation.Code}})
 	case errors.Is(err, identity.ErrRateLimited):
-		w.Header().Set("Retry-After", "900")
-		writeProblem(w, r, http.StatusTooManyRequests, "rate_limited", nil, nil)
+		writeRetryProblem(w, r, "rate_limited", err)
 	case errors.Is(err, identity.ErrEmailTaken):
 		writeProblem(w, r, http.StatusConflict, "email_already_registered", nil, nil)
 	case errors.Is(err, identity.ErrInvalidCredentials):
@@ -267,6 +293,18 @@ func (a *AuthAPI) fail(w http.ResponseWriter, r *http.Request, err error) {
 // decodeBody reads a JSON object into dst with unknown fields rejected. It returns the raw body so
 // callers that need presence information can reuse it.
 func decodeBody(w http.ResponseWriter, r *http.Request, dst any) ([]byte, bool) {
+	raw, ok := readBody(w, r)
+	if !ok {
+		return nil, false
+	}
+	if !decodeStrict(w, r, raw, dst) {
+		return nil, false
+	}
+	return raw, true
+}
+
+// readBody reads the whole request body, writing a problem when it is too large or unreadable.
+func readBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
 		var tooLarge *http.MaxBytesError
@@ -277,17 +315,22 @@ func decodeBody(w http.ResponseWriter, r *http.Request, dst any) ([]byte, bool) 
 		writeProblem(w, r, http.StatusBadRequest, "invalid_request", nil, nil)
 		return nil, false
 	}
+	return raw, true
+}
+
+// decodeStrict decodes one JSON value from raw into dst with unknown fields rejected.
+func decodeStrict(w http.ResponseWriter, r *http.Request, raw []byte, dst any) bool {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
 		writeProblem(w, r, http.StatusBadRequest, "invalid_request", nil, nil)
-		return nil, false
+		return false
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
 		writeProblem(w, r, http.StatusBadRequest, "invalid_request", nil, nil)
-		return nil, false
+		return false
 	}
-	return raw, true
+	return true
 }
 
 func toUserResponse(account identity.Account) gen.User {
@@ -295,7 +338,7 @@ func toUserResponse(account identity.Account) gen.User {
 	for _, role := range account.Roles {
 		roles = append(roles, gen.Role(role))
 	}
-	return gen.User{
+	user := gen.User{
 		Id:              uuid.UUID(account.ID),
 		Email:           openapi_types.Email(account.Email),
 		Name:            account.Name,
@@ -307,6 +350,11 @@ func toUserResponse(account identity.Account) gen.User {
 		Status:          gen.UserStatus(account.Status),
 		Roles:           roles,
 	}
+	if !account.CreatedAt.IsZero() {
+		createdAt := account.CreatedAt
+		user.CreatedAt = &createdAt
+	}
+	return user
 }
 
 // refreshTokenFrom returns the refresh token from the cookie, or the bearer value for native clients.
@@ -334,22 +382,66 @@ func bearerValue(r *http.Request) string {
 	return strings.TrimSpace(value)
 }
 
-// clientIP returns the peer address, or the proxy-provided address when trusted.
-func clientIP(r *http.Request, trustProxy bool) string {
-	if trustProxy {
-		if value := strings.TrimSpace(r.Header.Get("X-Real-IP")); value != "" {
-			return value
-		}
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			first, _, _ := strings.Cut(forwarded, ",")
-			return strings.TrimSpace(first)
-		}
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+// clientIP returns the address the rate limiter and the session audit key on. A request from a
+// trusted proxy (by default only loopback: the Next.js server on the same host) is attributed to the
+// client the proxy names: the right-most X-Forwarded-For entry that is not itself a trusted proxy,
+// or X-Real-IP. Headers from any other peer are ignored, so a client cannot choose its own bucket.
+func clientIP(r *http.Request, trusted []netip.Prefix) string {
+	peer := peerAddr(r)
+	if !peer.IsValid() {
 		return r.RemoteAddr
 	}
-	return host
+	if !isTrusted(peer, trusted) {
+		return peer.String()
+	}
+	if forwarded := r.Header.Values("X-Forwarded-For"); len(forwarded) > 0 {
+		hops := strings.Split(strings.Join(forwarded, ","), ",")
+		for i := len(hops) - 1; i >= 0; i-- {
+			hop, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
+			if err != nil {
+				break
+			}
+			hop = hop.Unmap()
+			if !isTrusted(hop, trusted) {
+				return hop.String()
+			}
+		}
+	}
+	if real, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("X-Real-IP"))); err == nil {
+		return real.Unmap().String()
+	}
+	return peer.String()
+}
+
+func peerAddr(r *http.Request) netip.Addr {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.Addr{}
+	}
+	return addr.Unmap()
+}
+
+func isTrusted(addr netip.Addr, trusted []netip.Prefix) bool {
+	for _, prefix := range trusted {
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
+
+// writeRetryProblem answers 429 with the wait in both the Retry-After header and the problem body,
+// so the client can show an exact countdown.
+func writeRetryProblem(w http.ResponseWriter, r *http.Request, code string, err error) {
+	seconds := int(identity.RetryAfterOf(err) / time.Second)
+	if seconds > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	}
+	writeProblemWithRetry(w, r, http.StatusTooManyRequests, code, seconds)
 }
 
 type accountKey struct{}

@@ -132,6 +132,7 @@ type Repository interface {
 
 	MerchantBySlug(ctx context.Context, slug string) (Merchant, error)
 	MerchantReviews(ctx context.Context, merchantID uuid.UUID, limit int) ([]Review, error)
+	MapLocations(ctx context.Context) ([]MapLocation, error)
 
 	SuggestDeals(ctx context.Context, query, locale string, limit int) ([]SuggestionRow, error)
 	SuggestMerchants(ctx context.Context, query, locale string, limit int) ([]SuggestionRow, error)
@@ -358,6 +359,13 @@ func (s *Service) Merchant(ctx context.Context, slug string) (MerchantProfile, e
 			return MerchantProfile{}, fmt.Errorf("list merchant reviews: %w", err)
 		}
 		return MerchantProfile{Merchant: merchant, Deals: deals, Reviews: reviews}, nil
+	})
+}
+
+// MapLocations returns every branch of approved merchants for the public map.
+func (s *Service) MapLocations(ctx context.Context) ([]MapLocation, error) {
+	return cached(ctx, s, "map:locations", cacheTTL, func() ([]MapLocation, error) {
+		return s.repo.MapLocations(ctx)
 	})
 }
 

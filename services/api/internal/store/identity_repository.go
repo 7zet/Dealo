@@ -83,15 +83,11 @@ func (r *IdentityRepository) UpdateProfile(ctx context.Context, id uuid.UUID, up
 	merged := sqlc.UpdateUserProfileParams{
 		ID:       toPgUUID(id),
 		Name:     current.Name,
-		Phone:    current.Phone,
 		Locale:   current.Locale,
 		Currency: current.Currency,
 	}
 	if update.Name != nil {
 		merged.Name = *update.Name
-	}
-	if update.Phone != nil {
-		merged.Phone = pgtype.Text{String: *update.Phone, Valid: *update.Phone != ""}
 	}
 	if update.Locale != nil {
 		merged.Locale = sqlc.LocaleCode(*update.Locale)
@@ -121,6 +117,25 @@ func (r *IdentityRepository) ListRoles(ctx context.Context, id uuid.UUID) ([]ide
 		roles = append(roles, identity.Role(row.Role))
 	}
 	return roles, nil
+}
+
+// ListMemberships returns the merchant workspaces of the user, without soft-deleted merchants.
+func (r *IdentityRepository) ListMemberships(ctx context.Context, id uuid.UUID) ([]identity.Membership, error) {
+	rows, err := r.queries.ListUserMemberships(ctx, toPgUUID(id))
+	if err != nil {
+		return nil, fmt.Errorf("list user memberships: %w", err)
+	}
+	memberships := make([]identity.Membership, 0, len(rows))
+	for _, row := range rows {
+		memberships = append(memberships, identity.Membership{
+			MerchantID:   toUUID(row.MerchantID),
+			MerchantName: row.MerchantName,
+			MerchantSlug: row.MerchantSlug,
+			Role:         identity.Role(row.Role),
+			ReviewStatus: row.ReviewStatus,
+		})
+	}
+	return memberships, nil
 }
 
 func (r *IdentityRepository) CreateRefreshToken(ctx context.Context, token identity.RefreshToken) error {
@@ -223,6 +238,9 @@ func toUser(row sqlc.User) identity.User {
 		Locale:   string(row.Locale),
 		Currency: string(row.Currency),
 		Status:   string(row.Status),
+	}
+	if row.CreatedAt.Valid {
+		user.CreatedAt = row.CreatedAt.Time
 	}
 	if row.Phone.Valid {
 		value := row.Phone.String

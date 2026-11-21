@@ -609,6 +609,73 @@ func (q *Queries) ListDealSummaryRows(ctx context.Context, dealIds []pgtype.UUID
 	return items, nil
 }
 
+const listMapLocationRows = `-- name: ListMapLocationRows :many
+SELECT ml.id, ml.address, ml.lat::float8 AS lat, ml.lng::float8 AS lng,
+       ci.slug AS city_slug, m.slug AS merchant_slug, m.display_name AS merchant_name, m.logo_url,
+       m.rating_avg::float8 AS rating_avg, m.rating_count,
+       (SELECT COUNT(*)
+          FROM deal_locations dl
+          JOIN deals d ON d.id = dl.deal_id
+          JOIN categories cat ON cat.id = d.category_id AND cat.searchable = true
+         WHERE dl.merchant_location_id = ml.id
+           AND d.deleted_at IS NULL
+           AND d.status = 'active'
+           AND d.ends_at > now()
+           AND EXISTS (SELECT 1 FROM deal_options o WHERE o.deal_id = d.id AND o.is_active = true)
+       )::int AS active_deal_count
+FROM merchant_locations ml
+JOIN merchants m ON m.id = ml.merchant_id AND m.review_status = 'approved' AND m.deleted_at IS NULL
+JOIN cities ci ON ci.id = ml.city_id
+ORDER BY m.display_name, ml.created_at, ml.id
+`
+
+type ListMapLocationRowsRow struct {
+	ID              pgtype.UUID `json:"id"`
+	Address         string      `json:"address"`
+	Lat             float64     `json:"lat"`
+	Lng             float64     `json:"lng"`
+	CitySlug        string      `json:"city_slug"`
+	MerchantSlug    string      `json:"merchant_slug"`
+	MerchantName    string      `json:"merchant_name"`
+	LogoUrl         pgtype.Text `json:"logo_url"`
+	RatingAvg       float64     `json:"rating_avg"`
+	RatingCount     int32       `json:"rating_count"`
+	ActiveDealCount int32       `json:"active_deal_count"`
+}
+
+// Every branch of an approved merchant, with the number of publishable deals redeemable there.
+func (q *Queries) ListMapLocationRows(ctx context.Context) ([]ListMapLocationRowsRow, error) {
+	rows, err := q.db.Query(ctx, listMapLocationRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMapLocationRowsRow{}
+	for rows.Next() {
+		var i ListMapLocationRowsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Address,
+			&i.Lat,
+			&i.Lng,
+			&i.CitySlug,
+			&i.MerchantSlug,
+			&i.MerchantName,
+			&i.LogoUrl,
+			&i.RatingAvg,
+			&i.RatingCount,
+			&i.ActiveDealCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMerchantLocationRows = `-- name: ListMerchantLocationRows :many
 SELECT ml.id, ml.address, ml.lat::float8 AS lat, ml.lng::float8 AS lng, ml.opening_hours, ml.phone,
        ci.id AS city_id, ci.slug AS city_slug, ci.name AS city_name, ci.lat::float8 AS city_lat,
@@ -998,7 +1065,7 @@ func (q *Queries) SearchPublishedDealIDs(ctx context.Context, arg SearchPublishe
 const suggestCategories = `-- name: SuggestCategories :many
 SELECT slug, name
 FROM categories
-WHERE is_active = true
+WHERE searchable = true
   AND (
     strpos(lower(immutable_unaccent(concat_ws(' ', name->>'uz', name->>'ru', name->>'en'))),
            lower(immutable_unaccent($1::text))) > 0
@@ -1043,6 +1110,7 @@ const suggestDeals = `-- name: SuggestDeals :many
 SELECT d.slug, d.title
 FROM deals d
 JOIN merchants m ON m.id = d.merchant_id AND m.review_status = 'approved' AND m.deleted_at IS NULL
+JOIN categories cat ON cat.id = d.category_id AND cat.searchable = true
 WHERE d.deleted_at IS NULL
   AND d.status = 'active'
   AND d.ends_at > now()

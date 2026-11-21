@@ -227,6 +227,9 @@ func populate(ctx context.Context, tx pgx.Tx, data seedData, images []imageSeed)
 	if _, err := tx.Exec(ctx, `INSERT INTO role_assignments(user_id,role) VALUES($1,'superadmin')`, userIDs[7]); err != nil {
 		return err
 	}
+	if err := seedRoleAccounts(ctx, tx, merchantIDs[0]); err != nil {
+		return err
+	}
 	deals := make([]dealSeed, 100)
 	statuses := []string{"active", "active", "active", "active", "active", "active", "scheduled", "paused", "ended", "draft"}
 	for i := range deals {
@@ -248,7 +251,7 @@ func populate(ctx context.Context, tx pgx.Tx, data seedData, images []imageSeed)
 			start = time.Now().UTC().Add(-20 * 24 * time.Hour)
 			end = time.Now().UTC().Add(-24 * time.Hour)
 		}
-		if err := tx.QueryRow(ctx, `INSERT INTO deals(slug,merchant_id,category_id,subcategory_id,title,short_description,description,highlights,whats_included,terms,faq,redemption_instructions,booking_required,status,starts_at,ends_at,voucher_valid_days,max_per_user,sold_count) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$7,$9,$7,$10,$11,$12,$13,30,5,$14) RETURNING id`, fmt.Sprintf("seed-deal-%03d", i+1), merchantIDs[merchant], categoryIDs[category], subcategoryIDs[category][i%len(subcategoryIDs[category])], title, short, detail, highlights, faq, i%4 == 0, statuses[i%len(statuses)], start, end, i*3).Scan(&deals[i].ID); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO deals(slug,merchant_id,category_id,subcategory_id,title,short_description,description,highlights,whats_included,terms,faq,redemption_instructions,booking_required,status,starts_at,ends_at,voucher_valid_days,max_per_user,sold_count) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$7,$9,$7,$10,$11,$12,$13,30,5,$14) RETURNING id`, fmt.Sprintf("seed-deal-%03d", i+1), merchantIDs[merchant], categoryIDs[category], subcategoryIDs[category][i%len(subcategoryIDs[category])], title, short, detail, highlights, faq, i%4 == 0, statuses[i%len(statuses)], start, end, seededSales(i)).Scan(&deals[i].ID); err != nil {
 			return err
 		}
 		deals[i].MerchantID, deals[i].LocationID, deals[i].Title = merchantIDs[merchant], locationIDs[merchant][0], title
@@ -258,10 +261,15 @@ func populate(ctx context.Context, tx pgx.Tx, data seedData, images []imageSeed)
 			}
 		}
 		for j := 0; j < 1+i%3; j++ {
+			// The seeded orders below all buy the first option, so only it carries sales.
+			optionSales := 0
+			if j == 0 {
+				optionSales = seededSales(i)
+			}
 			original := int64(100000+(i%12)*25000+j*10000) * tiyinPerSom
 			price := original * int64(55+i%30) / 100
 			var optionID string
-			if err := tx.QueryRow(ctx, `INSERT INTO deal_options(deal_id,title,original_price,deal_price,stock_total,stock_sold,sort_order) VALUES($1,$2,$3,$4,500,$5,$6) RETURNING id`, deals[i].ID, title, original, price, i*3, j).Scan(&optionID); err != nil {
+			if err := tx.QueryRow(ctx, `INSERT INTO deal_options(deal_id,title,original_price,deal_price,stock_total,stock_sold,sort_order) VALUES($1,$2,$3,$4,500,$5,$6) RETURNING id`, deals[i].ID, title, original, price, optionSales, j).Scan(&optionID); err != nil {
 				return err
 			}
 			if j == 0 {
@@ -274,8 +282,8 @@ func populate(ctx context.Context, tx pgx.Tx, data seedData, images []imageSeed)
 			}
 		}
 	}
-	for i := 0; i < 400; i++ {
-		deal := deals[i%80]
+	for i := 0; i < seedOrders; i++ {
+		deal := deals[i%seedOrderDeals]
 		userID := userIDs[4+i%(len(userIDs)-4)]
 		var orderID, itemID, voucherID string
 		if err := tx.QueryRow(ctx, `INSERT INTO orders(number,user_id,status,subtotal,total,idempotency_key,paid_at) VALUES('GR-2026-' || lpad(nextval('order_number_seq')::text, 6, '0'),$1,'paid',$2,$2,$3,now()-interval '2 days') RETURNING id`, userID, deal.Price, fmt.Sprintf("seed-order-%06d", i+1)).Scan(&orderID); err != nil {
@@ -343,4 +351,57 @@ func seedPhone(i int) string {
 		return named[i]
 	}
 	return fmt.Sprintf("+99891%07d", i)
+}
+
+// The seed sells seedOrders single vouchers, spread over the first seedOrderDeals deals in turn.
+const (
+	seedOrders     = 400
+	seedOrderDeals = 80
+)
+
+// seededSales is how many vouchers the seeded orders sell of deal i. The sold counters show exactly
+// this, as a real purchase would move them; cards and the merchant deal list never show invented sales.
+func seededSales(i int) int {
+	if i >= seedOrderDeals {
+		return 0
+	}
+	sales := seedOrders / seedOrderDeals
+	if i < seedOrders%seedOrderDeals {
+		sales++
+	}
+	return sales
+}
+
+// roleAccounts are the development accounts for the platform staff roles and a merchant manager. Their
+// phones sit next to the named accounts (see docs/ENVIRONMENT.md).
+var roleAccounts = []struct {
+	Phone, Email, Name, Role string
+	Merchant                 bool
+}{
+	{"+998900000010", "finance@local.test", "Finance", "finance", false},
+	{"+998900000011", "support@local.test", "Support", "support", false},
+	{"+998900000012", "moderator@local.test", "Moderator", "moderator", false},
+	{"+998900000014", "manager@local.test", "Merchant Manager", "merchant_manager", true},
+}
+
+// seedRoleAccounts creates the role accounts, or reuses an account that already signed in with the same
+// phone and so survived the reset as a self-registered user. Every statement is safe to run again.
+func seedRoleAccounts(ctx context.Context, tx pgx.Tx, merchantID string) error {
+	for _, account := range roleAccounts {
+		var userID string
+		if err := tx.QueryRow(ctx, `INSERT INTO users(email,name,locale,currency,email_verified_at,phone) VALUES($1,$2,'uz','UZS',now(),$3)
+			ON CONFLICT (phone) WHERE phone IS NOT NULL AND deleted_at IS NULL DO UPDATE SET phone = EXCLUDED.phone
+			RETURNING id`, account.Email, account.Name, account.Phone).Scan(&userID); err != nil {
+			return fmt.Errorf("seed %s account: %w", account.Role, err)
+		}
+		var merchant any
+		if account.Merchant {
+			merchant = merchantID
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO role_assignments(user_id,role,merchant_id) VALUES($1,'user',NULL),($1,$2::app_role,$3)
+			ON CONFLICT DO NOTHING`, userID, account.Role, merchant); err != nil {
+			return fmt.Errorf("seed %s role: %w", account.Role, err)
+		}
+	}
+	return nil
 }

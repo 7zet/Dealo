@@ -162,9 +162,9 @@ func (s *PanelService) Reviews(ctx context.Context, merchantID uuid.UUID) ([]Rev
 }
 
 // Reply writes the merchant's answer to a review. One reply per review; it can be edited for 24 hours.
-// Cashiers cannot reply.
+// It needs PermWorkspaceEdit, so cashiers cannot reply.
 func (s *PanelService) Reply(ctx context.Context, actor Actor, merchantID, reviewID uuid.UUID, text string) (ReviewReply, error) {
-	if actor.Role == RoleCashier {
+	if !Can(actor.Role, PermWorkspaceEdit) {
 		return ReviewReply{}, ErrForbidden
 	}
 	text = strings.TrimSpace(text)
@@ -201,9 +201,9 @@ func (s *PanelService) Settings(ctx context.Context, merchantID uuid.UUID) (Sett
 	return s.repo.Settings(ctx, merchantID)
 }
 
-// UpdateSettings stores the choices. Only the owner or a manager may change them; cashiers cannot.
+// UpdateSettings stores the choices. It needs PermWorkspaceEdit, so cashiers cannot change them.
 func (s *PanelService) UpdateSettings(ctx context.Context, actor Actor, merchantID uuid.UUID, settings Settings) (Settings, error) {
-	if actor.Role == RoleCashier {
+	if !Can(actor.Role, PermWorkspaceEdit) {
 		return Settings{}, ErrForbidden
 	}
 	if err := s.repo.UpdateSettings(ctx, merchantID, settings); err != nil {

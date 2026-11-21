@@ -6,14 +6,26 @@ export type Deal = components['schemas']['Deal'];
 export type DealSummary = components['schemas']['DealSummary'];
 export type DealPage = components['schemas']['DealPage'];
 export type MerchantProfile = components['schemas']['MerchantProfile'];
+export type MapLocation = components['schemas']['MapLocation'];
+export type MapLocationList = components['schemas']['MapLocationList'];
 export type ReviewList = components['schemas']['ReviewList'];
 export type SuggestionList = components['schemas']['SuggestionList'];
 
-declare const process: { env: { NEXT_PUBLIC_API_BASE_URL?: string } };
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1').replace(
-  /\/+$/,
-  '',
-);
+declare const process: {
+  env: { NEXT_PUBLIC_API_BASE_URL?: string; NEXT_PUBLIC_USE_MSW?: string };
+};
+const serverApiBaseUrl = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1'
+).replace(/\/+$/, '');
+/**
+ * The API sends no CORS headers, so browsers call it through the web app's same-origin rewrite
+ * (see apps/web/next.config.ts), which exposes only the public reads the browser needs. MSW mocks
+ * intercept the absolute URL, so mock mode keeps it.
+ */
+const apiBaseUrl =
+  typeof window === 'undefined' || process.env.NEXT_PUBLIC_USE_MSW === 'true'
+    ? serverApiBaseUrl
+    : '/api/public';
 
 /** Cache tag shared by every catalog fetch; the API revalidates it via /api/revalidate. */
 export const CATALOG_CACHE_TAG = 'catalog';
@@ -56,6 +68,7 @@ export const publicApi = {
     ),
   merchant: (slug: string) =>
     request<MerchantProfile>(`/businesses/${encodeURIComponent(slug)}`, cached(60)),
+  mapLocations: () => request<MapLocationList>('/map/locations', cached(60)),
   suggestions: (query: string) =>
     request<SuggestionList>(withQuery('/search/suggestions', new URLSearchParams({ q: query }))),
 };

@@ -27,21 +27,13 @@ func NewMerchantPanelAPI(service *merchant.PanelService, workspace *merchant.Wor
 	return &MerchantPanelAPI{service: service, workspace: workspace, auth: auth, logger: logger}
 }
 
-func (a *MerchantPanelAPI) scope(w http.ResponseWriter, r *http.Request, mayEdit bool) (merchant.Actor, uuid.UUID, bool) {
-	account, ok := a.auth.authenticate(w, r)
-	if !ok {
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	merchantID, role, err := a.workspace.Authorize(r.Context(), account.ID, mayEdit)
-	if err != nil {
-		a.fail(w, r, err)
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	return merchant.Actor{UserID: account.ID, Role: role}, merchantID, true
+// scope resolves the caller's merchant after checking the permission the operation needs.
+func (a *MerchantPanelAPI) scope(w http.ResponseWriter, r *http.Request, permission merchant.Permission) (merchant.Actor, uuid.UUID, bool) {
+	return merchantScope(w, r, a.auth, a.workspace, a.logger, permission)
 }
 
 func (a *MerchantPanelAPI) ListMerchantPayouts(w http.ResponseWriter, r *http.Request, _ gen.ListMerchantPayoutsParams) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermPayoutsView)
 	if !ok {
 		return
 	}
@@ -67,7 +59,7 @@ func (a *MerchantPanelAPI) ListMerchantPayouts(w http.ResponseWriter, r *http.Re
 }
 
 func (a *MerchantPanelAPI) ListMerchantCustomers(w http.ResponseWriter, r *http.Request, _ gen.ListMerchantCustomersParams) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -91,11 +83,23 @@ func (a *MerchantPanelAPI) ListMerchantCustomers(w http.ResponseWriter, r *http.
 }
 
 func (a *MerchantPanelAPI) GetMerchantAnalytics(w http.ResponseWriter, r *http.Request, params gen.GetMerchantAnalyticsParams) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
-	// The end date is inclusive in the contract; the store takes the exclusive end of that day.
+	// The range is checked only after authorization, so a role without access learns nothing more
+	// than 403. The end date is inclusive in the contract; the store takes the exclusive end of that day.
+	missing := map[string][]string{}
+	if params.From == nil {
+		missing["from"] = []string{"required"}
+	}
+	if params.To == nil {
+		missing["to"] = []string{"required"}
+	}
+	if len(missing) > 0 {
+		writeProblem(w, r, http.StatusBadRequest, "required_parameter_missing", nil, missing)
+		return
+	}
 	from := params.From.Time
 	to := params.To.Time.AddDate(0, 0, 1)
 	out, err := a.service.Analytics(r.Context(), merchantID, from, to)
@@ -118,7 +122,7 @@ func (a *MerchantPanelAPI) GetMerchantAnalytics(w http.ResponseWriter, r *http.R
 }
 
 func (a *MerchantPanelAPI) ListMerchantReviews(w http.ResponseWriter, r *http.Request, _ gen.ListMerchantReviewsParams) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -135,7 +139,7 @@ func (a *MerchantPanelAPI) ListMerchantReviews(w http.ResponseWriter, r *http.Re
 }
 
 func (a *MerchantPanelAPI) ReplyToMerchantReview(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -152,7 +156,7 @@ func (a *MerchantPanelAPI) ReplyToMerchantReview(w http.ResponseWriter, r *http.
 }
 
 func (a *MerchantPanelAPI) ListMerchantOrders(w http.ResponseWriter, r *http.Request, _ gen.ListMerchantOrdersParams) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -163,21 +167,26 @@ func (a *MerchantPanelAPI) ListMerchantOrders(w http.ResponseWriter, r *http.Req
 	}
 	items := make([]gen.Order, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, gen.Order{
-			Id:        gen.Uuid(row.ID),
-			Number:    row.Number,
-			Status:    gen.OrderStatus(row.Status),
-			Subtotal:  money(row.Subtotal),
-			Total:     money(row.Total),
-			Items:     []gen.OrderItem{},
-			CreatedAt: row.CreatedAt,
-		})
+		items = append(items, mapMerchantOrder(row))
 	}
 	writeJSON(w, http.StatusOK, gen.OrderPage{Items: items})
 }
 
+// mapMerchantOrder maps an order of the merchant's deals; the merchant list carries no line items.
+func mapMerchantOrder(row merchant.OrderRow) gen.Order {
+	return gen.Order{
+		Id:        gen.Uuid(row.ID),
+		Number:    row.Number,
+		Status:    gen.OrderStatus(row.Status),
+		Subtotal:  money(row.Subtotal),
+		Total:     money(row.Total),
+		Items:     []gen.OrderItem{},
+		CreatedAt: row.CreatedAt,
+	}
+}
+
 func (a *MerchantPanelAPI) GetMerchantSettings(w http.ResponseWriter, r *http.Request) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -190,7 +199,7 @@ func (a *MerchantPanelAPI) GetMerchantSettings(w http.ResponseWriter, r *http.Re
 }
 
 func (a *MerchantPanelAPI) UpdateMerchantSettings(w http.ResponseWriter, r *http.Request) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}

@@ -115,6 +115,9 @@ type AuditEntry struct {
 type AttemptCounts struct {
 	LastMinute   int
 	FailedRecent int
+	// BlockStartedAt is the FailedLookupLimit-th newest failure inside the block window, zero when there
+	// are fewer. The block lifts BlockWindow after it.
+	BlockStartedAt time.Time
 }
 
 // Repository reads vouchers and performs the conditional redemption write.
@@ -142,11 +145,13 @@ type Repository interface {
 }
 
 func (s *Service) History(ctx context.Context, merchantID uuid.UUID, actor merchant.Actor, page catalog.Page) (HistoryPage, error) {
-	var staffID *uuid.UUID
-	if actor.Role == merchant.RoleCashier {
-		staffID = &actor.UserID
-	} else if actor.Role != merchant.RoleOwner && actor.Role != merchant.RoleManager {
+	if !merchant.Can(actor.Role, merchant.PermRedeem) {
 		return HistoryPage{}, merchant.ErrForbidden
+	}
+	// Without the full-history permission a member sees only the redemptions they made.
+	var staffID *uuid.UUID
+	if !merchant.Can(actor.Role, merchant.PermRedemptionsViewAll) {
+		staffID = &actor.UserID
 	}
 	items, total, err := s.repo.History(ctx, merchantID, staffID, page)
 	if err != nil {
@@ -209,6 +214,35 @@ var ErrTooManyAttempts = errors.New("redemption: too many lookups, slow down")
 // ErrScannerBlocked reports a staff member blocked after repeated failed code entries.
 var ErrScannerBlocked = errors.New("redemption: scanner blocked after repeated failed lookups")
 
+// ScannerBlockedError is ErrScannerBlocked with the time left until the block lifts.
+type ScannerBlockedError struct{ RetryAfter time.Duration }
+
+func (e *ScannerBlockedError) Error() string { return ErrScannerBlocked.Error() }
+
+// Is lets callers keep matching with errors.Is(err, ErrScannerBlocked).
+func (e *ScannerBlockedError) Is(target error) bool { return target == ErrScannerBlocked }
+
+// RetryAfterOf returns the wait carried by a scanner block, rounded up to whole seconds; 0 if unknown.
+func RetryAfterOf(err error) time.Duration {
+	var blocked *ScannerBlockedError
+	if !errors.As(err, &blocked) || blocked.RetryAfter <= 0 {
+		return 0
+	}
+	return (blocked.RetryAfter + time.Second - 1).Truncate(time.Second)
+}
+
+// blockedFor is how long the block still lasts; the full window when the start is unknown.
+func blockedFor(counts AttemptCounts, now time.Time) time.Duration {
+	if counts.BlockStartedAt.IsZero() {
+		return BlockWindow
+	}
+	left := counts.BlockStartedAt.Add(BlockWindow).Sub(now)
+	if left <= 0 || left > BlockWindow {
+		return BlockWindow
+	}
+	return left
+}
+
 // Lookup resolves a voucher from a QR token or a human code. The result carries the effective status.
 func (s *Service) Lookup(ctx context.Context, merchantID, staffID uuid.UUID, token, code string) (commerce.VoucherView, error) {
 	now := s.now()
@@ -217,7 +251,7 @@ func (s *Service) Lookup(ctx context.Context, merchantID, staffID uuid.UUID, tok
 		return commerce.VoucherView{}, err
 	}
 	if stats.FailedRecent >= FailedLookupLimit {
-		return commerce.VoucherView{}, ErrScannerBlocked
+		return commerce.VoucherView{}, &ScannerBlockedError{RetryAfter: blockedFor(stats, now)}
 	}
 	if stats.LastMinute >= LookupsPerMinute {
 		return commerce.VoucherView{}, ErrTooManyAttempts
@@ -261,6 +295,9 @@ type Geo struct {
 }
 
 func (s *Service) Redeem(ctx context.Context, merchantID uuid.UUID, actor merchant.Actor, voucherID, locationID uuid.UUID, geo *Geo) (commerce.VoucherView, error) {
+	if !merchant.Can(actor.Role, merchant.PermRedeem) {
+		return commerce.VoucherView{}, merchant.ErrForbidden
+	}
 	voucher, err := s.repo.Find(ctx, voucherID)
 	if err != nil {
 		return commerce.VoucherView{}, err
@@ -367,7 +404,7 @@ func unusable(voucher commerce.Voucher, at time.Time) error {
 // Reverse undoes the latest redemption of a voucher. The cashier who made it may do so within
 // ReversalWindow; merchant owners and managers may do so at any time.
 func (s *Service) Reverse(ctx context.Context, merchantID uuid.UUID, actor merchant.Actor, voucherID uuid.UUID, reason string) error {
-	if actor.Role != merchant.RoleOwner && actor.Role != merchant.RoleManager && actor.Role != merchant.RoleCashier {
+	if !merchant.Can(actor.Role, merchant.PermRedeem) {
 		return merchant.ErrForbidden
 	}
 	found, err := s.repo.ReversalCandidate(ctx, merchantID, voucherID)
@@ -379,7 +416,7 @@ func (s *Service) Reverse(ctx context.Context, merchantID uuid.UUID, actor merch
 	}
 	now := s.now()
 	cashierOwnsIt := found.StaffID == actor.UserID
-	if actor.Role == merchant.RoleCashier && !cashierOwnsIt {
+	if !merchant.Can(actor.Role, merchant.PermRedemptionsViewAll) && !cashierOwnsIt {
 		return merchant.ErrForbidden
 	}
 	// PRD FR-05.5: the window is 10 minutes for the cashier; after it only support can reverse.

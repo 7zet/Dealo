@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/grupon/grupon/services/api/internal/domain/identity"
 	"github.com/grupon/grupon/services/api/internal/domain/identity/identitytest"
+	"github.com/grupon/grupon/services/api/internal/domain/reviews"
 )
 
 const (
@@ -22,9 +25,10 @@ const (
 )
 
 type authHarness struct {
-	router http.Handler
-	auth   *AuthAPI
-	repo   *identitytest.Repository
+	router  http.Handler
+	auth    *AuthAPI
+	repo    *identitytest.Repository
+	reviews *myReviewsRepo
 }
 
 func newAuthHarness(t *testing.T, limit int, secure bool) authHarness {
@@ -40,17 +44,71 @@ func newAuthHarness(t *testing.T, limit int, secure bool) authHarness {
 		limiter = &identitytest.Limiter{Max: limit}
 	}
 	service := identity.NewService(identity.Dependencies{
-		Repository: repo, Tokens: tokens, Mailer: mailer, Limiter: limiter, Now: time.Now,
+		Repository: repo, Tokens: tokens, Mailer: mailer, Limiter: limiter, CodeSender: silentSender{}, Now: time.Now,
 	}, identity.Config{
 		AccessTokenTTL: 15 * time.Minute, RefreshTokenTTL: 30 * 24 * time.Hour,
-		VerifyEmailTTL: 24 * time.Hour,
-		WebBaseURL:     "https://grupon.test", BrandName: "Grupon",
+		VerifyEmailTTL: 24 * time.Hour, OTPEcho: true,
+		WebBaseURL: "https://grupon.test", BrandName: "Grupon",
 	})
 	auth := NewAuthAPI(service, slog.New(slog.NewTextHandler(io.Discard, nil)), AuthOptions{
 		SecureCookies:   secure,
 		RefreshTokenTTL: 30 * 24 * time.Hour,
 	})
-	return authHarness{router: NewRouter(RouterOptions{Auth: auth}), auth: auth, repo: repo}
+	reviewRepo := &myReviewsRepo{}
+	reviewAPI := NewReviewAPI(reviews.NewService(reviewRepo), auth, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return authHarness{router: NewRouter(RouterOptions{Auth: auth, Reviews: reviewAPI}), auth: auth, repo: repo, reviews: reviewRepo}
+}
+
+// silentSender accepts sign-in codes without delivering them; the harness reads the echoed code.
+type silentSender struct{}
+
+func (silentSender) SendCode(context.Context, string, string) error { return nil }
+
+// signIn signs a phone in through the OTP flow and returns its access cookie.
+func (h authHarness) signIn(t *testing.T, phone string) (*http.Cookie, uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	meta := identity.RequestMeta{IP: "192.0.2.10"}
+	code, err := h.auth.identity.RequestCode(ctx, meta, phone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := h.auth.identity.VerifyCode(ctx, meta, phone, code.DevCode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &http.Cookie{Name: accessCookieName, Value: session.AccessToken}, session.Account.ID
+}
+
+// myReviewsRepo is a reviews.Repository that only serves the author's list.
+type myReviewsRepo struct {
+	items []reviews.MyReview
+}
+
+func (r *myReviewsRepo) Voucher(context.Context, uuid.UUID) (reviews.VoucherOwner, error) {
+	return reviews.VoucherOwner{}, reviews.ErrVoucherNotFound
+}
+func (r *myReviewsRepo) Insert(context.Context, reviews.VoucherOwner, uuid.UUID, uuid.UUID, reviews.Input) (reviews.Review, error) {
+	return reviews.Review{}, errors.New("not used")
+}
+func (r *myReviewsRepo) Find(context.Context, uuid.UUID) (reviews.Review, error) {
+	return reviews.Review{}, reviews.ErrNotFound
+}
+func (r *myReviewsRepo) Update(context.Context, uuid.UUID, uuid.UUID, reviews.Input) (bool, error) {
+	return false, nil
+}
+func (r *myReviewsRepo) SoftDelete(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return false, nil
+}
+func (r *myReviewsRepo) Report(context.Context, uuid.UUID, uuid.UUID, string) error { return nil }
+func (r *myReviewsRepo) ListByUser(_ context.Context, userID uuid.UUID) ([]reviews.MyReview, error) {
+	mine := []reviews.MyReview{}
+	for _, item := range r.items {
+		if item.UserID == userID {
+			mine = append(mine, item)
+		}
+	}
+	return mine, nil
 }
 
 func (h authHarness) do(t *testing.T, method, path string, body any, cookies ...*http.Cookie) *httptest.ResponseRecorder {

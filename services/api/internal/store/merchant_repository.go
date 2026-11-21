@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -38,6 +39,12 @@ func (r *MerchantRepository) RegisterOwned(ctx context.Context, ownerID uuid.UUI
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	queries := sqlc.New(tx)
+	// An account works for at most one business, so an owner or staff member cannot register another.
+	if _, err := queries.MerchantOfUser(ctx, toPgUUID(ownerID)); err == nil {
+		return merchant.Created{}, merchant.ErrAlreadyInAnotherBusiness
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return merchant.Created{}, fmt.Errorf("check existing business: %w", err)
+	}
 	cityOK, err := queries.ActiveCityExists(ctx, toPgUUID(registration.CityID))
 	if err != nil {
 		return merchant.Created{}, fmt.Errorf("check city: %w", err)
@@ -100,7 +107,33 @@ func (r *MerchantRepository) RegisterOwned(ctx context.Context, ownerID uuid.UUI
 		Role:       sqlc.AppRole("merchant_owner"),
 		MerchantID: created.ID,
 	}); err != nil {
+		if isUniqueViolation(err) {
+			return merchant.Created{}, merchant.ErrAlreadyInAnotherBusiness
+		}
 		return merchant.Created{}, fmt.Errorf("assign owner role: %w", err)
+	}
+
+	// Registration accepts the platform offer and sets the payout bank account, so it is audited in
+	// the same transaction. Bank details stay out of the audit payload.
+	after, err := json.Marshal(map[string]any{
+		"slug":                 created.Slug,
+		"display_name":         created.DisplayName,
+		"review_status":        created.ReviewStatus,
+		"contract_version":     registration.ContractVersion,
+		"contract_accepted_at": registration.ContractAcceptedAt,
+	})
+	if err != nil {
+		return merchant.Created{}, fmt.Errorf("encode registration audit: %w", err)
+	}
+	if err := queries.InsertAuditLog(ctx, sqlc.InsertAuditLogParams{
+		ActorUserID: toPgUUID(ownerID),
+		ActorRole:   sqlc.AppRole("merchant_owner"),
+		Action:      "merchant.register",
+		EntityType:  "merchant",
+		EntityID:    created.ID,
+		AfterData:   after,
+	}); err != nil {
+		return merchant.Created{}, fmt.Errorf("write registration audit: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

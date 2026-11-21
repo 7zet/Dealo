@@ -98,9 +98,25 @@ func (q *Queries) ListMerchantStaffRows(ctx context.Context, merchantID pgtype.U
 	return items, nil
 }
 
+const merchantOfUser = `-- name: MerchantOfUser :one
+SELECT merchant_id FROM role_assignments
+WHERE user_id = $1 AND merchant_id IS NOT NULL
+`
+
+// The business the user already works for, if any. Soft-deleted businesses count: the role row still
+// holds the one-business slot.
+func (q *Queries) MerchantOfUser(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, merchantOfUser, userID)
+	var merchant_id pgtype.UUID
+	err := row.Scan(&merchant_id)
+	return merchant_id, err
+}
+
 const staffAssignmentForMerchant = `-- name: StaffAssignmentForMerchant :one
-SELECT id, user_id, role::text AS role FROM role_assignments
-WHERE id = $1 AND merchant_id = $2
+SELECT ra.id, ra.user_id, ra.role::text AS role, u.name, u.email, u.phone, u.locale, u.currency, u.status
+FROM role_assignments ra
+JOIN users u ON u.id = ra.user_id
+WHERE ra.id = $1 AND ra.merchant_id = $2
 `
 
 type StaffAssignmentForMerchantParams struct {
@@ -109,15 +125,32 @@ type StaffAssignmentForMerchantParams struct {
 }
 
 type StaffAssignmentForMerchantRow struct {
-	ID     pgtype.UUID `json:"id"`
-	UserID pgtype.UUID `json:"user_id"`
-	Role   string      `json:"role"`
+	ID       pgtype.UUID  `json:"id"`
+	UserID   pgtype.UUID  `json:"user_id"`
+	Role     string       `json:"role"`
+	Name     string       `json:"name"`
+	Email    string       `json:"email"`
+	Phone    pgtype.Text  `json:"phone"`
+	Locale   LocaleCode   `json:"locale"`
+	Currency CurrencyCode `json:"currency"`
+	Status   UserStatus   `json:"status"`
 }
 
+// The response of an invite or role change carries the full member, so the user is joined here.
 func (q *Queries) StaffAssignmentForMerchant(ctx context.Context, arg StaffAssignmentForMerchantParams) (StaffAssignmentForMerchantRow, error) {
 	row := q.db.QueryRow(ctx, staffAssignmentForMerchant, arg.ID, arg.MerchantID)
 	var i StaffAssignmentForMerchantRow
-	err := row.Scan(&i.ID, &i.UserID, &i.Role)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Role,
+		&i.Name,
+		&i.Email,
+		&i.Phone,
+		&i.Locale,
+		&i.Currency,
+		&i.Status,
+	)
 	return i, err
 }
 

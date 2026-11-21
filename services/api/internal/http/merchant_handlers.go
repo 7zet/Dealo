@@ -17,17 +17,18 @@ import (
 type MerchantAPI struct {
 	gen.Unimplemented
 
-	service *merchant.Service
-	auth    *AuthAPI
-	logger  *slog.Logger
+	service   *merchant.Service
+	workspace *merchant.WorkspaceService
+	auth      *AuthAPI
+	logger    *slog.Logger
 }
 
 var _ gen.ServerInterface = (*MerchantAPI)(nil)
 
 // NewMerchantAPI binds the merchant service to the HTTP contract. It needs the auth handlers to
 // resolve the signed-in account.
-func NewMerchantAPI(service *merchant.Service, auth *AuthAPI, logger *slog.Logger) *MerchantAPI {
-	return &MerchantAPI{service: service, auth: auth, logger: logger}
+func NewMerchantAPI(service *merchant.Service, workspace *merchant.WorkspaceService, auth *AuthAPI, logger *slog.Logger) *MerchantAPI {
+	return &MerchantAPI{service: service, workspace: workspace, auth: auth, logger: logger}
 }
 
 func (a *MerchantAPI) RegisterMerchant(w http.ResponseWriter, r *http.Request) {
@@ -78,13 +79,14 @@ func (a *MerchantAPI) RegisterMerchant(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// SubmitMerchantForReview sends the owner's draft business to platform review.
+// SubmitMerchantForReview sends the owner's draft business to platform review. It needs
+// business.manage, which only the owner holds.
 func (a *MerchantAPI) SubmitMerchantForReview(w http.ResponseWriter, r *http.Request) {
-	account, ok := a.auth.authenticate(w, r)
+	actor, _, ok := merchantScope(w, r, a.auth, a.workspace, a.logger, merchant.PermBusinessManage)
 	if !ok {
 		return
 	}
-	submitted, err := a.service.Submit(r.Context(), account.ID)
+	submitted, err := a.service.Submit(r.Context(), actor.UserID)
 	if err != nil {
 		switch {
 		case errors.Is(err, merchant.ErrNoBusiness):
@@ -123,6 +125,8 @@ func (a *MerchantAPI) failRegistration(w http.ResponseWriter, r *http.Request, e
 			map[string][]string{invalid.Field: {invalid.Code}})
 	case errors.Is(err, merchant.ErrCityNotFound):
 		writeProblem(w, r, http.StatusUnprocessableEntity, "city_not_found", nil, nil)
+	case errors.Is(err, merchant.ErrAlreadyInAnotherBusiness):
+		writeProblem(w, r, http.StatusConflict, "already_in_another_business", nil, nil)
 	case errors.Is(err, merchant.ErrCategoryNotFound):
 		writeProblem(w, r, http.StatusUnprocessableEntity, "category_not_found", nil, nil)
 	default:

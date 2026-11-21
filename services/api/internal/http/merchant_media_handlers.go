@@ -30,21 +30,14 @@ func NewMerchantMediaAPI(media *merchant.MediaService, workspace *merchant.Works
 	return &MerchantMediaAPI{media: media, workspace: workspace, auth: auth, logger: logger}
 }
 
-func (a *MerchantMediaAPI) scope(w http.ResponseWriter, r *http.Request, mayEdit bool) (uuid.UUID, bool) {
-	account, ok := a.auth.authenticate(w, r)
-	if !ok {
-		return uuid.Nil, false
-	}
-	merchantID, _, err := a.workspace.Authorize(r.Context(), account.ID, mayEdit)
-	if err != nil {
-		a.fail(w, r, err)
-		return uuid.Nil, false
-	}
-	return merchantID, true
+// scope resolves the caller's merchant after checking the permission the operation needs.
+func (a *MerchantMediaAPI) scope(w http.ResponseWriter, r *http.Request, permission merchant.Permission) (uuid.UUID, bool) {
+	_, merchantID, ok := merchantScope(w, r, a.auth, a.workspace, a.logger, permission)
+	return merchantID, ok
 }
 
 func (a *MerchantMediaAPI) ListMerchantMedia(w http.ResponseWriter, r *http.Request) {
-	merchantID, ok := a.scope(w, r, false)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -61,7 +54,7 @@ func (a *MerchantMediaAPI) ListMerchantMedia(w http.ResponseWriter, r *http.Requ
 }
 
 func (a *MerchantMediaAPI) CreateMerchantMediaUpload(w http.ResponseWriter, r *http.Request) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -82,7 +75,7 @@ func (a *MerchantMediaAPI) CreateMerchantMediaUpload(w http.ResponseWriter, r *h
 }
 
 func (a *MerchantMediaAPI) UploadMerchantMediaContent(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -98,7 +91,7 @@ func (a *MerchantMediaAPI) UploadMerchantMediaContent(w http.ResponseWriter, r *
 }
 
 func (a *MerchantMediaAPI) DeleteMerchantMedia(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}

@@ -327,27 +327,39 @@ func (q *Queries) NextRedemptionSequence(ctx context.Context, voucherID pgtype.U
 }
 
 const redemptionAttemptStats = `-- name: RedemptionAttemptStats :one
-SELECT COUNT(*) FILTER (WHERE created_at > $1)::int AS last_minute,
-       COUNT(*) FILTER (WHERE failed)::int AS failed_recent
-FROM redemption_attempts
-WHERE staff_user_id = $2 AND created_at > $3
+SELECT COUNT(*) FILTER (WHERE a.created_at > $1)::int AS last_minute,
+       COUNT(*) FILTER (WHERE a.failed)::int AS failed_recent,
+       (SELECT f.created_at FROM redemption_attempts f
+        WHERE f.staff_user_id = $2 AND f.failed AND f.created_at > $3
+        ORDER BY f.created_at DESC OFFSET $4::int LIMIT 1)::timestamptz AS block_started_at
+FROM redemption_attempts a
+WHERE a.staff_user_id = $2 AND a.created_at > $3
 `
 
 type RedemptionAttemptStatsParams struct {
 	MinuteSince pgtype.Timestamptz `json:"minute_since"`
 	StaffUserID pgtype.UUID        `json:"staff_user_id"`
 	BlockSince  pgtype.Timestamptz `json:"block_since"`
+	BlockRank   int32              `json:"block_rank"`
 }
 
 type RedemptionAttemptStatsRow struct {
-	LastMinute   int32 `json:"last_minute"`
-	FailedRecent int32 `json:"failed_recent"`
+	LastMinute     int32              `json:"last_minute"`
+	FailedRecent   int32              `json:"failed_recent"`
+	BlockStartedAt pgtype.Timestamptz `json:"block_started_at"`
 }
 
+// block_started_at is the failure at block_rank (0-based, newest first) inside the block window: the
+// block lifts one window after it, so the scanner can say how long to wait.
 func (q *Queries) RedemptionAttemptStats(ctx context.Context, arg RedemptionAttemptStatsParams) (RedemptionAttemptStatsRow, error) {
-	row := q.db.QueryRow(ctx, redemptionAttemptStats, arg.MinuteSince, arg.StaffUserID, arg.BlockSince)
+	row := q.db.QueryRow(ctx, redemptionAttemptStats,
+		arg.MinuteSince,
+		arg.StaffUserID,
+		arg.BlockSince,
+		arg.BlockRank,
+	)
 	var i RedemptionAttemptStatsRow
-	err := row.Scan(&i.LastMinute, &i.FailedRecent)
+	err := row.Scan(&i.LastMinute, &i.FailedRecent, &i.BlockStartedAt)
 	return i, err
 }
 

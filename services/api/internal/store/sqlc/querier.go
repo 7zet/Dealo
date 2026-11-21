@@ -147,6 +147,8 @@ type Querier interface {
 	ListDealLocationRows(ctx context.Context, dealIds []pgtype.UUID) ([]ListDealLocationRowsRow, error)
 	ListDealMediaForDeals(ctx context.Context, dealIds []pgtype.UUID) ([]ListDealMediaForDealsRow, error)
 	ListDealSummaryRows(ctx context.Context, dealIds []pgtype.UUID) ([]ListDealSummaryRowsRow, error)
+	// Every branch of an approved merchant, with the number of publishable deals redeemable there.
+	ListMapLocationRows(ctx context.Context) ([]ListMapLocationRowsRow, error)
 	ListMediaAssets(ctx context.Context, arg ListMediaAssetsParams) ([]ListMediaAssetsRow, error)
 	ListMerchantDocuments(ctx context.Context, merchantID pgtype.UUID) ([]ListMerchantDocumentsRow, error)
 	ListMerchantLocationRows(ctx context.Context, merchantID pgtype.UUID) ([]ListMerchantLocationRowsRow, error)
@@ -168,6 +170,10 @@ type Querier interface {
 	ListRelatedDealIDs(ctx context.Context, arg ListRelatedDealIDsParams) ([]pgtype.UUID, error)
 	ListSubcategories(ctx context.Context) ([]ListSubcategoriesRow, error)
 	ListUnreleasedReservations(ctx context.Context, orderID pgtype.UUID) ([]ListUnreleasedReservationsRow, error)
+	// Merchant workspaces of a user. Soft-deleted merchants are left out.
+	ListUserMemberships(ctx context.Context, userID pgtype.UUID) ([]ListUserMembershipsRow, error)
+	// Every review the user still has, whatever its moderation status, newest first.
+	ListUserReviews(ctx context.Context, userID pgtype.UUID) ([]ListUserReviewsRow, error)
 	ListUserRoles(ctx context.Context, userID pgtype.UUID) ([]RoleAssignment, error)
 	ListVouchersForUser(ctx context.Context, arg ListVouchersForUserParams) ([]ListVouchersForUserRow, error)
 	LockOrderByID(ctx context.Context, orderID pgtype.UUID) (LockOrderByIDRow, error)
@@ -186,6 +192,9 @@ type Querier interface {
 	MerchantCustomerRows(ctx context.Context, merchantID pgtype.UUID) ([]MerchantCustomerRowsRow, error)
 	MerchantLocationBelongsTo(ctx context.Context, arg MerchantLocationBelongsToParams) (bool, error)
 	MerchantLocationCoords(ctx context.Context, arg MerchantLocationCoordsParams) (MerchantLocationCoordsRow, error)
+	// The business the user already works for, if any. Soft-deleted businesses count: the role row still
+	// holds the one-business slot.
+	MerchantOfUser(ctx context.Context, userID pgtype.UUID) (pgtype.UUID, error)
 	MerchantOnHold(ctx context.Context, merchantID pgtype.UUID) (bool, error)
 	MerchantOrderRows(ctx context.Context, merchantID pgtype.UUID) ([]MerchantOrderRowsRow, error)
 	MerchantPayoutRows(ctx context.Context, merchantID pgtype.UUID) ([]MerchantPayoutRowsRow, error)
@@ -194,6 +203,8 @@ type Querier interface {
 	MerchantReviewStatusByID(ctx context.Context, id pgtype.UUID) (string, error)
 	// Merchant workspace: the signed-in merchant's business, branches and dashboard aggregates.
 	// Every query is scoped by merchant_id; callers never pass an unscoped id.
+	// An account has at most one merchant role (role_assignments_one_merchant_per_user). A soft-deleted
+	// business gives no workspace.
 	MerchantRoleForUser(ctx context.Context, userID pgtype.UUID) (MerchantRoleForUserRow, error)
 	MerchantSalesByDay(ctx context.Context, arg MerchantSalesByDayParams) ([]MerchantSalesByDayRow, error)
 	MerchantSettingsRow(ctx context.Context, merchantID pgtype.UUID) (MerchantSettingsRowRow, error)
@@ -211,6 +222,8 @@ type Querier interface {
 	RecomputeDealSoldCounts(ctx context.Context) (int64, error)
 	RecomputeMerchantRatings(ctx context.Context) (int64, error)
 	RedeemVoucherIfActive(ctx context.Context, arg RedeemVoucherIfActiveParams) (int64, error)
+	// block_started_at is the failure at block_rank (0-based, newest first) inside the block window: the
+	// block lifts one window after it, so the scanner can say how long to wait.
 	RedemptionAttemptStats(ctx context.Context, arg RedemptionAttemptStatsParams) (RedemptionAttemptStatsRow, error)
 	RefundDetail(ctx context.Context, id pgtype.UUID) (RefundDetailRow, error)
 	ReleaseOptionStock(ctx context.Context, arg ReleaseOptionStockParams) error
@@ -233,6 +246,7 @@ type Querier interface {
 	SoftDeleteUnusedMediaAsset(ctx context.Context, arg SoftDeleteUnusedMediaAssetParams) (int64, error)
 	// Deleted accounts keep a tombstone email so the address can be reused by a new account.
 	SoftDeleteUser(ctx context.Context, id pgtype.UUID) error
+	// The response of an invite or role change carries the full member, so the user is joined here.
 	StaffAssignmentForMerchant(ctx context.Context, arg StaffAssignmentForMerchantParams) (StaffAssignmentForMerchantRow, error)
 	SubcategoryCategoryID(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	SubmitMerchantForReview(ctx context.Context, arg SubmitMerchantForReviewParams) (SubmitMerchantForReviewRow, error)

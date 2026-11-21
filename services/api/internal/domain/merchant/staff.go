@@ -15,6 +15,9 @@ var (
 	ErrAlreadyStaff   = errors.New("merchant: this user already has a role in the business")
 	ErrStaffNotFound  = errors.New("merchant: staff assignment not found")
 	ErrOwnerProtected = errors.New("merchant: the owner's role cannot be changed here")
+	// ErrAlreadyInAnotherBusiness reports that the user already works for another business. In the
+	// pilot an account belongs to at most one business.
+	ErrAlreadyInAnotherBusiness = errors.New("merchant: this user already works for another business")
 )
 
 // Staff roles the owner may hand out. The owner itself is set at registration.
@@ -28,7 +31,10 @@ type StaffMember struct {
 	Email        string
 	Phone        string
 	Role         string
-	Status       string
+	// Locale, Currency and Status describe the user account behind the role.
+	Locale   string
+	Currency string
+	Status   string
 }
 
 // StaffAudit describes a staff change for the audit trail.
@@ -43,6 +49,8 @@ type StaffAudit struct {
 // StaffRepository persists staff changes. Every write also writes its audit row in the same transaction.
 type StaffRepository interface {
 	UserIDByPhone(ctx context.Context, phone string) (uuid.UUID, error)
+	// MerchantOf returns the business the user already holds a merchant role in, if any.
+	MerchantOf(ctx context.Context, userID uuid.UUID) (merchantID uuid.UUID, found bool, err error)
 	List(ctx context.Context, merchantID uuid.UUID) ([]StaffMember, error)
 	Add(ctx context.Context, merchantID, userID uuid.UUID, role string, audit StaffAudit) (uuid.UUID, error)
 	Assignment(ctx context.Context, merchantID, assignmentID uuid.UUID) (StaffMember, error)
@@ -68,9 +76,10 @@ func (s *StaffService) List(ctx context.Context, merchantID uuid.UUID) ([]StaffM
 	return s.repo.List(ctx, merchantID)
 }
 
-// Invite gives an existing user a manager or cashier role. The user must have signed in once.
+// Invite gives an existing user a manager or cashier role. The user must have signed in once and must
+// not work for a business yet: an account belongs to at most one business.
 func (s *StaffService) Invite(ctx context.Context, actor Actor, merchantID uuid.UUID, phone, role string) (StaffMember, error) {
-	if actor.Role != RoleOwner {
+	if !Can(actor.Role, PermStaffManage) {
 		return StaffMember{}, ErrForbidden
 	}
 	if !phoneForStaff.MatchString(phone) {
@@ -83,6 +92,16 @@ func (s *StaffService) Invite(ctx context.Context, actor Actor, merchantID uuid.
 	if err != nil {
 		return StaffMember{}, err
 	}
+	current, found, err := s.repo.MerchantOf(ctx, userID)
+	if err != nil {
+		return StaffMember{}, err
+	}
+	if found && current == merchantID {
+		return StaffMember{}, ErrAlreadyStaff
+	}
+	if found {
+		return StaffMember{}, ErrAlreadyInAnotherBusiness
+	}
 	assignmentID, err := s.repo.Add(ctx, merchantID, userID, role, s.audit(actor, merchantID, "staff_invited", map[string]any{"role": role, "user_id": userID.String()}))
 	if err != nil {
 		return StaffMember{}, err
@@ -92,7 +111,7 @@ func (s *StaffService) Invite(ctx context.Context, actor Actor, merchantID uuid.
 
 // ChangeRole switches a manager or cashier to another of those two roles.
 func (s *StaffService) ChangeRole(ctx context.Context, actor Actor, merchantID, assignmentID uuid.UUID, role string) (StaffMember, error) {
-	if actor.Role != RoleOwner {
+	if !Can(actor.Role, PermStaffManage) {
 		return StaffMember{}, ErrForbidden
 	}
 	if !inviteRoles[role] {
@@ -113,7 +132,7 @@ func (s *StaffService) ChangeRole(ctx context.Context, actor Actor, merchantID, 
 
 // Remove takes a manager or cashier out of the business. The owner cannot be removed.
 func (s *StaffService) Remove(ctx context.Context, actor Actor, merchantID, assignmentID uuid.UUID) error {
-	if actor.Role != RoleOwner {
+	if !Can(actor.Role, PermStaffManage) {
 		return ErrForbidden
 	}
 	current, err := s.repo.Assignment(ctx, merchantID, assignmentID)

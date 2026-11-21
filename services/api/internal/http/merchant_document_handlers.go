@@ -18,23 +18,25 @@ import (
 // MerchantDocumentAPI serves business documents: owners upload, reviewers download (FR-01.2). Files are
 // never served as public media.
 type MerchantDocumentAPI struct {
-	service *merchant.DocumentService
-	review  *merchant.ReviewService
-	auth    *AuthAPI
-	logger  *slog.Logger
+	service   *merchant.DocumentService
+	review    *merchant.ReviewService
+	workspace *merchant.WorkspaceService
+	auth      *AuthAPI
+	logger    *slog.Logger
 }
 
 // NewMerchantDocumentAPI binds the document rules to the HTTP contract.
-func NewMerchantDocumentAPI(service *merchant.DocumentService, review *merchant.ReviewService, auth *AuthAPI, logger *slog.Logger) *MerchantDocumentAPI {
-	return &MerchantDocumentAPI{service: service, review: review, auth: auth, logger: logger}
+func NewMerchantDocumentAPI(service *merchant.DocumentService, review *merchant.ReviewService, workspace *merchant.WorkspaceService, auth *AuthAPI, logger *slog.Logger) *MerchantDocumentAPI {
+	return &MerchantDocumentAPI{service: service, review: review, workspace: workspace, auth: auth, logger: logger}
 }
 
+// ListMerchantDocuments lists the business documents. It needs business.manage (owner only).
 func (a *MerchantDocumentAPI) ListMerchantDocuments(w http.ResponseWriter, r *http.Request) {
-	account, ok := a.auth.authenticate(w, r)
+	actor, _, ok := merchantScope(w, r, a.auth, a.workspace, a.logger, merchant.PermBusinessManage)
 	if !ok {
 		return
 	}
-	docs, err := a.service.List(r.Context(), account.ID)
+	docs, err := a.service.List(r.Context(), actor.UserID)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -46,8 +48,9 @@ func (a *MerchantDocumentAPI) ListMerchantDocuments(w http.ResponseWriter, r *ht
 	writeJSON(w, http.StatusOK, gen.MerchantDocumentList{Items: items})
 }
 
+// UploadMerchantDocument stores one business document. It needs business.manage (owner only).
 func (a *MerchantDocumentAPI) UploadMerchantDocument(w http.ResponseWriter, r *http.Request, kind gen.UploadMerchantDocumentParamsKind) {
-	account, ok := a.auth.authenticate(w, r)
+	actor, _, ok := merchantScope(w, r, a.auth, a.workspace, a.logger, merchant.PermBusinessManage)
 	if !ok {
 		return
 	}
@@ -55,7 +58,7 @@ func (a *MerchantDocumentAPI) UploadMerchantDocument(w http.ResponseWriter, r *h
 	body := http.MaxBytesReader(w, r.Body, merchant.MaxDocumentBytes+1)
 	defer body.Close()
 	contentType := r.Header.Get("Content-Type")
-	if _, err := a.service.Upload(r.Context(), account.ID, string(kind), contentType, body); err != nil {
+	if _, err := a.service.Upload(r.Context(), actor.UserID, string(kind), contentType, body); err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
 			writeProblem(w, r, http.StatusUnprocessableEntity, "document_too_large", nil, nil)

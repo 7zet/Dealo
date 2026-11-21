@@ -129,6 +129,75 @@ func (q *Queries) InsertReviewReport(ctx context.Context, arg InsertReviewReport
 	return result.RowsAffected(), nil
 }
 
+const listUserReviews = `-- name: ListUserReviews :many
+SELECT r.id, r.deal_id, r.merchant_id, r.user_id, r.voucher_id, r.rating, r.text, r.locale, r.status,
+       r.created_at, d.slug AS deal_slug, d.title AS deal_title, m.display_name AS merchant_name,
+       rr.id AS reply_id, rr.text AS reply_text, rr.created_at AS reply_created_at
+FROM reviews r
+JOIN deals d ON d.id = r.deal_id
+JOIN merchants m ON m.id = r.merchant_id
+LEFT JOIN review_replies rr ON rr.review_id = r.id
+WHERE r.user_id = $1 AND r.deleted_at IS NULL
+ORDER BY r.created_at DESC, r.id DESC
+`
+
+type ListUserReviewsRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	DealID         pgtype.UUID        `json:"deal_id"`
+	MerchantID     pgtype.UUID        `json:"merchant_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	VoucherID      pgtype.UUID        `json:"voucher_id"`
+	Rating         int16              `json:"rating"`
+	Text           string             `json:"text"`
+	Locale         LocaleCode         `json:"locale"`
+	Status         ReviewStatus       `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	DealSlug       string             `json:"deal_slug"`
+	DealTitle      []byte             `json:"deal_title"`
+	MerchantName   string             `json:"merchant_name"`
+	ReplyID        pgtype.UUID        `json:"reply_id"`
+	ReplyText      pgtype.Text        `json:"reply_text"`
+	ReplyCreatedAt pgtype.Timestamptz `json:"reply_created_at"`
+}
+
+// Every review the user still has, whatever its moderation status, newest first.
+func (q *Queries) ListUserReviews(ctx context.Context, userID pgtype.UUID) ([]ListUserReviewsRow, error) {
+	rows, err := q.db.Query(ctx, listUserReviews, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserReviewsRow{}
+	for rows.Next() {
+		var i ListUserReviewsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DealID,
+			&i.MerchantID,
+			&i.UserID,
+			&i.VoucherID,
+			&i.Rating,
+			&i.Text,
+			&i.Locale,
+			&i.Status,
+			&i.CreatedAt,
+			&i.DealSlug,
+			&i.DealTitle,
+			&i.MerchantName,
+			&i.ReplyID,
+			&i.ReplyText,
+			&i.ReplyCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteOwnReview = `-- name: SoftDeleteOwnReview :execrows
 UPDATE reviews SET deleted_at = now(), updated_at = now()
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL

@@ -183,8 +183,8 @@ func (r *MerchantWorkspaceRepository) UpdateLocation(ctx context.Context, mercha
 	return rows > 0, nil
 }
 
-// DeleteLocation reports deleted=false when the row is missing or used by a live deal; the service
-// distinguishes the two by re-reading ownership.
+// DeleteLocation reports deleted=false when a live deal still uses the branch, and ErrNotFound when
+// the branch is not this merchant's, so another business's branch looks missing rather than in use.
 func (r *MerchantWorkspaceRepository) DeleteLocation(ctx context.Context, merchantID, locationID uuid.UUID) (bool, error) {
 	rows, err := r.queries.DeleteMerchantLocationRow(ctx, sqlc.DeleteMerchantLocationRowParams{
 		ID:         toPgUUID(locationID),
@@ -193,7 +193,19 @@ func (r *MerchantWorkspaceRepository) DeleteLocation(ctx context.Context, mercha
 	if err != nil {
 		return false, fmt.Errorf("delete location: %w", err)
 	}
-	return rows > 0, nil
+	if rows > 0 {
+		return true, nil
+	}
+	belongs, err := r.queries.MerchantLocationBelongsTo(ctx, sqlc.MerchantLocationBelongsToParams{
+		ID: toPgUUID(locationID), MerchantID: toPgUUID(merchantID),
+	})
+	if err != nil {
+		return false, fmt.Errorf("check location: %w", err)
+	}
+	if !belongs {
+		return false, merchant.ErrNotFound
+	}
+	return false, nil
 }
 
 func (r *MerchantWorkspaceRepository) Sales(ctx context.Context, merchantID uuid.UUID, from, to time.Time) (int64, error) {
@@ -318,4 +330,17 @@ func nonNilMap(value map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	return value
+}
+
+// LatestOrders returns the newest orders holding one of the merchant's deals, the same rows as the
+// orders page.
+func (r *MerchantWorkspaceRepository) LatestOrders(ctx context.Context, merchantID uuid.UUID, limit int) ([]merchant.OrderRow, error) {
+	rows, err := NewMerchantPanelRepository(r.pool).Orders(ctx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) > limit {
+		rows = rows[:limit]
+	}
+	return rows, nil
 }

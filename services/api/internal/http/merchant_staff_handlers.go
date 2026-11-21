@@ -27,21 +27,13 @@ func NewMerchantStaffAPI(service *merchant.StaffService, workspace *merchant.Wor
 	return &MerchantStaffAPI{service: service, workspace: workspace, auth: auth, logger: logger}
 }
 
-func (a *MerchantStaffAPI) scope(w http.ResponseWriter, r *http.Request, mayEdit bool) (merchant.Actor, uuid.UUID, bool) {
-	account, ok := a.auth.authenticate(w, r)
-	if !ok {
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	merchantID, role, err := a.workspace.Authorize(r.Context(), account.ID, mayEdit)
-	if err != nil {
-		a.fail(w, r, err)
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	return merchant.Actor{UserID: account.ID, Role: role}, merchantID, true
+// scope resolves the caller's merchant after checking the permission the operation needs.
+func (a *MerchantStaffAPI) scope(w http.ResponseWriter, r *http.Request, permission merchant.Permission) (merchant.Actor, uuid.UUID, bool) {
+	return merchantScope(w, r, a.auth, a.workspace, a.logger, permission)
 }
 
 func (a *MerchantStaffAPI) ListMerchantStaff(w http.ResponseWriter, r *http.Request) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -58,7 +50,7 @@ func (a *MerchantStaffAPI) ListMerchantStaff(w http.ResponseWriter, r *http.Requ
 }
 
 func (a *MerchantStaffAPI) InviteMerchantStaff(w http.ResponseWriter, r *http.Request) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermStaffManage)
 	if !ok {
 		return
 	}
@@ -75,7 +67,7 @@ func (a *MerchantStaffAPI) InviteMerchantStaff(w http.ResponseWriter, r *http.Re
 }
 
 func (a *MerchantStaffAPI) UpdateMerchantStaff(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermStaffManage)
 	if !ok {
 		return
 	}
@@ -92,7 +84,7 @@ func (a *MerchantStaffAPI) UpdateMerchantStaff(w http.ResponseWriter, r *http.Re
 }
 
 func (a *MerchantStaffAPI) RemoveMerchantStaff(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermStaffManage)
 	if !ok {
 		return
 	}
@@ -113,6 +105,8 @@ func (a *MerchantStaffAPI) fail(w http.ResponseWriter, r *http.Request, err erro
 		writeProblem(w, r, http.StatusNotFound, "user_not_found", nil, nil)
 	case errors.Is(err, merchant.ErrStaffNotFound):
 		writeProblem(w, r, http.StatusNotFound, "staff_not_found", nil, nil)
+	case errors.Is(err, merchant.ErrAlreadyInAnotherBusiness):
+		writeProblem(w, r, http.StatusConflict, "already_in_another_business", nil, nil)
 	case errors.Is(err, merchant.ErrAlreadyStaff):
 		writeProblem(w, r, http.StatusConflict, "already_staff", nil, nil)
 	case errors.Is(err, merchant.ErrOwnerProtected):
@@ -133,11 +127,17 @@ func mapStaffMember(m merchant.StaffMember) gen.StaffMember {
 	return gen.StaffMember{
 		Id:   gen.Uuid(m.AssignmentID),
 		Role: gen.StaffMemberRole(m.Role),
+		// Email is format-validated when marshalled, so the member must always carry the user's
+		// email; an empty one fails the whole response.
 		User: gen.User{
-			Id:    gen.Uuid(m.UserID),
-			Email: openapi_types.Email(m.Email),
-			Name:  m.Name,
-			Phone: &phone,
+			Id:       gen.Uuid(m.UserID),
+			Email:    openapi_types.Email(m.Email),
+			Name:     m.Name,
+			Phone:    &phone,
+			Locale:   gen.Locale(m.Locale),
+			Currency: gen.Currency(m.Currency),
+			Status:   gen.UserStatus(m.Status),
+			Roles:    []gen.Role{gen.Role(m.Role)},
 		},
 	}
 }

@@ -36,33 +36,32 @@ func (a *FinanceAPI) staffActor(w http.ResponseWriter, r *http.Request) (finance
 	if !ok {
 		return finance.Actor{}, identity.Account{}, false
 	}
-	role := ""
-	switch {
-	case account.HasRole(identity.RoleSuperadmin):
-		role = string(identity.RoleSuperadmin)
-	case account.HasRole(identity.RoleFinance):
-		role = string(identity.RoleFinance)
-	case account.HasRole(identity.RoleSupport):
-		role = string(identity.RoleSupport)
+	return finance.Actor{UserID: account.ID, Role: financeRole(account)}, account, true
+}
+
+// financeRole is the highest finance-related role of the account. Accounts without one keep their
+// highest other role so that a refused attempt can still be written to the audit trail (the audit
+// role column only takes real roles); the finance rules grant nothing to those roles.
+func financeRole(account identity.Account) string {
+	for _, role := range []identity.Role{identity.RoleSuperadmin, identity.RoleFinance, identity.RoleSupport,
+		identity.RoleAdmin, identity.RoleModerator, identity.RoleMerchantOwner, identity.RoleMerchantManager,
+		identity.RoleMerchantCashier} {
+		if account.HasRole(role) {
+			return string(role)
+		}
 	}
-	return finance.Actor{UserID: account.ID, Role: role}, account, true
+	return string(identity.RoleUser)
 }
 
 func (a *FinanceAPI) ReverseMerchantVoucher(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	account, ok := a.auth.authenticate(w, r)
+	actor, merchantID, ok := merchantScope(w, r, a.auth, a.workspace, a.logger, merchant.PermRedeem)
 	if !ok {
-		return
-	}
-	merchantID, role, err := a.workspace.Authorize(r.Context(), account.ID, false)
-	if err != nil {
-		a.fail(w, r, err)
 		return
 	}
 	var body gen.ReverseRequest
 	if _, ok := decodeBody(w, r, &body); !ok {
 		return
 	}
-	actor := merchant.Actor{UserID: account.ID, Role: role}
 	if err := a.redemption.Reverse(r.Context(), merchantID, actor, uuid.UUID(id), body.Reason); err != nil {
 		a.fail(w, r, err)
 		return
@@ -223,7 +222,11 @@ func (a *FinanceAPI) CloseDispute(w http.ResponseWriter, r *http.Request, id gen
 }
 
 func (a *FinanceAPI) fail(w http.ResponseWriter, r *http.Request, err error) {
+	var invalid *merchant.InvalidInputError
 	switch {
+	case errors.As(err, &invalid):
+		writeProblem(w, r, http.StatusUnprocessableEntity, invalid.Code, nil,
+			map[string][]string{invalid.Field: {invalid.Code}})
 	case errors.Is(err, redemption.ErrReversalWindowClosed):
 		writeProblem(w, r, http.StatusConflict, "reversal_window_closed", nil, nil)
 	case errors.Is(err, redemption.ErrNoRedemption), errors.Is(err, finance.ErrNoRedemption):

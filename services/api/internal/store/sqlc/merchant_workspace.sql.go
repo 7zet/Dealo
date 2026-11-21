@@ -313,9 +313,8 @@ const merchantRoleForUser = `-- name: MerchantRoleForUser :one
 
 SELECT ra.merchant_id, ra.role::text AS role
 FROM role_assignments ra
+JOIN merchants m ON m.id = ra.merchant_id AND m.deleted_at IS NULL
 WHERE ra.user_id = $1 AND ra.merchant_id IS NOT NULL
-ORDER BY ra.created_at, ra.id
-LIMIT 1
 `
 
 type MerchantRoleForUserRow struct {
@@ -325,6 +324,8 @@ type MerchantRoleForUserRow struct {
 
 // Merchant workspace: the signed-in merchant's business, branches and dashboard aggregates.
 // Every query is scoped by merchant_id; callers never pass an unscoped id.
+// An account has at most one merchant role (role_assignments_one_merchant_per_user). A soft-deleted
+// business gives no workspace.
 func (q *Queries) MerchantRoleForUser(ctx context.Context, userID pgtype.UUID) (MerchantRoleForUserRow, error) {
 	row := q.db.QueryRow(ctx, merchantRoleForUser, userID)
 	var i MerchantRoleForUserRow

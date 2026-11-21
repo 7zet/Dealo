@@ -506,8 +506,7 @@ func (s *commerceStore) ListVouchers(ctx context.Context, userID uuid.UUID, stat
 	for _, row := range rows {
 		voucher := voucherFromFields(row.ID, row.OrderItemID, row.UserID, row.DealID, row.DealOptionID,
 			row.MerchantID, row.Code, row.QrToken, row.Status, row.ValidFrom, row.ValidUntil, row.RedeemedAt)
-		voucher.Terms, err = catalog.ParseText(row.TermsSnapshot)
-		if err != nil {
+		if err := voucherSnapshot(&voucher, row.TermsSnapshot, row.TitleSnapshot, row.UnitPriceSnapshot); err != nil {
 			return nil, 0, err
 		}
 		vouchers = append(vouchers, voucher)
@@ -525,8 +524,23 @@ func (s *commerceStore) VoucherForUser(ctx context.Context, userID, voucherID uu
 	}
 	voucher := voucherFromFields(row.ID, row.OrderItemID, row.UserID, row.DealID, row.DealOptionID,
 		row.MerchantID, row.Code, row.QrToken, row.Status, row.ValidFrom, row.ValidUntil, row.RedeemedAt)
-	voucher.Terms, err = catalog.ParseText(row.TermsSnapshot)
-	return voucher, err
+	if err := voucherSnapshot(&voucher, row.TermsSnapshot, row.TitleSnapshot, row.UnitPriceSnapshot); err != nil {
+		return commerce.Voucher{}, err
+	}
+	return voucher, nil
+}
+
+// voucherSnapshot fills the purchase-time terms, title and price from the voucher's order item.
+func voucherSnapshot(voucher *commerce.Voucher, terms, title []byte, unitPrice int64) error {
+	var err error
+	if voucher.Terms, err = catalog.ParseText(terms); err != nil {
+		return fmt.Errorf("decode voucher terms snapshot: %w", err)
+	}
+	if voucher.Title, err = catalog.ParseText(title); err != nil {
+		return fmt.Errorf("decode voucher title snapshot: %w", err)
+	}
+	voucher.UnitPrice = unitPrice
+	return nil
 }
 
 func (s *commerceStore) ExpireDueVouchers(ctx context.Context, now time.Time, batch int) (int, error) {

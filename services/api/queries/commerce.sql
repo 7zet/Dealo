@@ -157,7 +157,7 @@ SELECT EXISTS (SELECT 1 FROM vouchers WHERE code = sqlc.arg(code)) AS taken;
 -- name: ListVouchersForUser :many
 SELECT v.id, v.order_item_id, v.user_id, v.deal_id, v.deal_option_id, v.merchant_id, v.code, v.qr_token,
        v.status::text AS status, v.valid_from, v.valid_until, v.redeemed_at, v.redeemed_location_id,
-       oi.terms_snapshot
+       oi.terms_snapshot, oi.title_snapshot, oi.unit_price_snapshot
 FROM vouchers v JOIN order_items oi ON oi.id = v.order_item_id
 WHERE v.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(status)::text IS NULL OR v.status::text = sqlc.narg(status)::text)
@@ -172,7 +172,7 @@ WHERE user_id = sqlc.arg(user_id)
 -- name: GetVoucherForUser :one
 SELECT v.id, v.order_item_id, v.user_id, v.deal_id, v.deal_option_id, v.merchant_id, v.code, v.qr_token,
        v.status::text AS status, v.valid_from, v.valid_until, v.redeemed_at, v.redeemed_location_id,
-       oi.terms_snapshot
+       oi.terms_snapshot, oi.title_snapshot, oi.unit_price_snapshot
 FROM vouchers v JOIN order_items oi ON oi.id = v.order_item_id
 WHERE v.id = sqlc.arg(id) AND v.user_id = sqlc.arg(user_id);
 

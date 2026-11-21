@@ -113,7 +113,7 @@ func TestCodesExpireAndResendHasACooldown(t *testing.T) {
 	}
 
 	clk.now = clk.now.Add(6 * time.Minute)
-	if _, err := svc.VerifyCode(context.Background(), meta, "+998902222222", sender.code); !errors.Is(err, identity.ErrOTPInvalid) {
+	if _, err := svc.VerifyCode(context.Background(), meta, "+998902222222", sender.code); !errors.Is(err, identity.ErrOTPExpired) {
 		t.Fatalf("expired code: got %v", err)
 	}
 }

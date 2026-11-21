@@ -25,11 +25,22 @@ const (
 	placeholderHost = "phone.grupon.local"
 )
 
+// Sign-in rate rules. Per-phone rules stop guessing and SMS flooding for one number. Per-IP rules
+// are only a coarse flood guard: many buyers can share one address (mobile carrier NAT, an office),
+// so they allow far more attempts and never stand in for the per-phone limit.
+var (
+	otpRequestPhoneRule = RateRule{Limit: 10, Window: 15 * time.Minute}
+	otpVerifyPhoneRule  = RateRule{Limit: 10, Window: 15 * time.Minute}
+	otpRequestIPRule    = RateRule{Limit: 100, Window: 15 * time.Minute}
+	otpVerifyIPRule     = RateRule{Limit: 200, Window: 15 * time.Minute}
+)
+
 // Errors for phone sign-in. The HTTP layer maps them to problem codes.
 var (
 	ErrInvalidPhone    = errors.New("identity: phone is not a valid Uzbekistan number")
 	ErrOTPCooldown     = errors.New("identity: a code was sent recently")
 	ErrOTPInvalid      = errors.New("identity: code is wrong or expired")
+	ErrOTPExpired      = errors.New("identity: code has expired")
 	ErrOTPTooManyTries = errors.New("identity: too many wrong codes")
 	ErrOTPUnavailable  = errors.New("identity: sign-in codes are not available right now")
 )
@@ -63,7 +74,10 @@ func (s *Service) RequestCode(ctx context.Context, meta RequestMeta, rawPhone st
 	if err != nil {
 		return OTPRequest{}, err
 	}
-	if err := s.allow(ctx, ipKey("otp", meta.IP), hashedKey("otp:phone", phone)); err != nil {
+	if err := s.allow(ctx,
+		rateCheck{key: hashedKey("otp:phone", phone), rule: otpRequestPhoneRule},
+		rateCheck{key: ipKey("otp", meta.IP), rule: otpRequestIPRule},
+	); err != nil {
 		return OTPRequest{}, err
 	}
 	if s.codeSender == nil {
@@ -73,8 +87,10 @@ func (s *Service) RequestCode(ctx context.Context, meta RequestMeta, rawPhone st
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return OTPRequest{}, err
 	}
-	if err == nil && s.cfg.OTPCooldown > 0 && s.now().Sub(latest.CreatedAt) < s.cfg.OTPCooldown {
-		return OTPRequest{}, ErrOTPCooldown
+	if err == nil && s.cfg.OTPCooldown > 0 {
+		if wait := s.cfg.OTPCooldown - s.now().Sub(latest.CreatedAt); wait > 0 {
+			return OTPRequest{}, &RetryAfterError{Err: ErrOTPCooldown, RetryAfter: wait}
+		}
 	}
 
 	code, err := newOTPCode()
@@ -101,7 +117,10 @@ func (s *Service) VerifyCode(ctx context.Context, meta RequestMeta, rawPhone, co
 	if err != nil {
 		return Session{}, err
 	}
-	if err := s.allow(ctx, ipKey("otp:verify", meta.IP), hashedKey("otp:verify:phone", phone)); err != nil {
+	if err := s.allow(ctx,
+		rateCheck{key: hashedKey("otp:verify:phone", phone), rule: otpVerifyPhoneRule},
+		rateCheck{key: ipKey("otp:verify", meta.IP), rule: otpVerifyIPRule},
+	); err != nil {
 		return Session{}, err
 	}
 	latest, err := s.repo.LatestPhoneOTP(ctx, phone)
@@ -112,7 +131,7 @@ func (s *Service) VerifyCode(ctx context.Context, meta RequestMeta, rawPhone, co
 		return Session{}, err
 	}
 	if !s.now().Before(latest.ExpiresAt) {
-		return Session{}, ErrOTPInvalid
+		return Session{}, ErrOTPExpired
 	}
 	if latest.Attempts >= otpMaxAttempts {
 		return Session{}, ErrOTPTooManyTries

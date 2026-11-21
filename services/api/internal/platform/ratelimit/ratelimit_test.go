@@ -8,9 +8,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/grupon/grupon/services/api/internal/domain/identity"
 )
 
-func TestRedisLimiterCountsWithinWindow(t *testing.T) {
+func TestRedisLimiterCountsWithinWindowAndReportsTheWait(t *testing.T) {
 	url := os.Getenv("TEST_REDIS_URL")
 	if url == "" {
 		t.Skip("TEST_REDIS_URL is not set")
@@ -23,28 +25,34 @@ func TestRedisLimiterCountsWithinWindow(t *testing.T) {
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
-	limiter := NewRedis(client, 2, time.Minute)
+	limiter := NewRedis(client)
+	rule := identity.RateRule{Limit: 2, Window: time.Minute}
 	key := "test:" + uuid.NewString()
-	t.Cleanup(func() { client.Del(ctx, keyPrefix+key) })
+	other := "test:" + uuid.NewString()
+	t.Cleanup(func() { client.Del(ctx, keyPrefix+key, keyPrefix+other) })
 
 	for i := 1; i <= 2; i++ {
-		ok, err := limiter.Allow(ctx, key)
-		if err != nil || !ok {
-			t.Fatalf("attempt %d = %v, %v; want allowed", i, ok, err)
+		decision, err := limiter.Allow(ctx, key, rule)
+		if err != nil || !decision.Allowed {
+			t.Fatalf("attempt %d = %+v, %v; want allowed", i, decision, err)
 		}
 	}
-	ok, err := limiter.Allow(ctx, key)
-	if err != nil || ok {
-		t.Fatalf("attempt 3 = %v, %v; want denied", ok, err)
+	decision, err := limiter.Allow(ctx, key, rule)
+	if err != nil || decision.Allowed {
+		t.Fatalf("attempt 3 = %+v, %v; want denied", decision, err)
 	}
-	if ttl := client.TTL(ctx, keyPrefix+key).Val(); ttl <= 0 || ttl > time.Minute {
-		t.Fatalf("ttl = %v, want a window expiry", ttl)
+	if decision.RetryAfter <= 0 || decision.RetryAfter > time.Minute {
+		t.Fatalf("retry after = %v, want the rest of the window", decision.RetryAfter)
+	}
+	// Another key has its own counter.
+	if decision, err := limiter.Allow(ctx, other, rule); err != nil || !decision.Allowed {
+		t.Fatalf("other key = %+v, %v; want allowed", decision, err)
 	}
 }
 
 func TestDisabledLimiterAllowsEverything(t *testing.T) {
-	ok, err := Disabled{}.Allow(context.Background(), "any")
-	if err != nil || !ok {
-		t.Fatalf("Disabled.Allow() = %v, %v", ok, err)
+	decision, err := Disabled{}.Allow(context.Background(), "any", identity.RateRule{Limit: 0, Window: time.Minute})
+	if err != nil || !decision.Allowed {
+		t.Fatalf("Disabled.Allow() = %+v, %v", decision, err)
 	}
 }

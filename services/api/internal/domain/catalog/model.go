@@ -222,6 +222,21 @@ type DealPage struct {
 	Items []DealSummary `json:"items"`
 }
 
+// MapLocation is one branch of an approved merchant, shown on the public map.
+type MapLocation struct {
+	ID              uuid.UUID `json:"id"`
+	Address         string    `json:"address"`
+	Lat             float64   `json:"lat"`
+	Lng             float64   `json:"lng"`
+	CitySlug        string    `json:"city_slug"`
+	MerchantSlug    string    `json:"merchant_slug"`
+	MerchantName    string    `json:"merchant_name"`
+	LogoURL         *string   `json:"logo_url,omitempty"`
+	RatingAvg       float64   `json:"rating_avg"`
+	RatingCount     int       `json:"rating_count"`
+	ActiveDealCount int       `json:"active_deal_count"`
+}
+
 // MerchantProfile is a merchant with its active deals and recent reviews.
 type MerchantProfile struct {
 	Merchant

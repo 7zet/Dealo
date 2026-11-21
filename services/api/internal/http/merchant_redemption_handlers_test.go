@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/grupon/grupon/services/api/internal/domain/redemption"
 )
@@ -37,5 +39,25 @@ func TestAT05ExpiredAndRefundedVoucherErrorsMapToUnprocessableProblems(t *testin
 				t.Fatalf("content type = %q, want application/problem+json", got)
 			}
 		})
+	}
+}
+
+func TestScannerBlockedAnswersWithRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	api := &MerchantRedemptionAPI{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/merchant/vouchers/lookup", nil)
+
+	api.fail(recorder, request, &redemption.ScannerBlockedError{RetryAfter: 90*time.Second + 300*time.Millisecond})
+
+	if recorder.Code != http.StatusTooManyRequests || problemCode(t, recorder) != "scanner_blocked" {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Retry-After"); got != "91" {
+		t.Fatalf("Retry-After = %q, want 91", got)
+	}
+	if !strings.Contains(recorder.Body.String(), `"retry_after_seconds":91`) {
+		t.Fatalf("body lacks retry_after_seconds: %s", recorder.Body.String())
 	}
 }

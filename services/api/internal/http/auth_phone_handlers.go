@@ -49,7 +49,9 @@ func (a *AuthAPI) phoneFail(w http.ResponseWriter, r *http.Request, err error) {
 		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid_phone", nil,
 			map[string][]string{"phone": {"invalid_phone"}})
 	case errors.Is(err, identity.ErrOTPCooldown):
-		writeProblem(w, r, http.StatusTooManyRequests, "otp_cooldown", nil, nil)
+		writeRetryProblem(w, r, "otp_cooldown", err)
+	case errors.Is(err, identity.ErrOTPExpired):
+		writeProblem(w, r, http.StatusUnauthorized, "otp_expired", nil, nil)
 	case errors.Is(err, identity.ErrOTPInvalid):
 		writeProblem(w, r, http.StatusUnauthorized, "otp_invalid", nil, nil)
 	case errors.Is(err, identity.ErrOTPTooManyTries):

@@ -15,6 +15,21 @@ type memStaff struct {
 	audited  []string
 	ownerID  uuid.UUID
 	ownerRow uuid.UUID
+	// merchant is the business the members belong to; elsewhere maps users to other businesses.
+	merchant  uuid.UUID
+	elsewhere map[uuid.UUID]uuid.UUID
+}
+
+func (m *memStaff) MerchantOf(_ context.Context, userID uuid.UUID) (uuid.UUID, bool, error) {
+	if other, ok := m.elsewhere[userID]; ok {
+		return other, true, nil
+	}
+	for _, member := range m.members {
+		if member.UserID == userID {
+			return m.merchant, true, nil
+		}
+	}
+	return uuid.Nil, false, nil
 }
 
 func (m *memStaff) UserIDByPhone(_ context.Context, phone string) (uuid.UUID, error) {
@@ -33,7 +48,8 @@ func (m *memStaff) List(context.Context, uuid.UUID) ([]StaffMember, error) {
 	return out, nil
 }
 
-func (m *memStaff) Add(_ context.Context, _, userID uuid.UUID, role string, audit StaffAudit) (uuid.UUID, error) {
+func (m *memStaff) Add(_ context.Context, merchantID, userID uuid.UUID, role string, audit StaffAudit) (uuid.UUID, error) {
+	m.merchant = merchantID
 	for _, member := range m.members {
 		if member.UserID == userID {
 			return uuid.Nil, ErrAlreadyStaff
@@ -119,5 +135,34 @@ func TestOnlyTheOwnerChangesStaffAndEveryChangeIsAudited(t *testing.T) {
 	}
 	if len(repo.audited) != 2 || repo.audited[0] != "staff_invited" || repo.audited[1] != "staff_removed" {
 		t.Fatalf("audit trail = %v", repo.audited)
+	}
+}
+
+// In the pilot an account works for one business: inviting someone from another business is refused
+// before anything is written, and inviting an existing member reports that they are already staff.
+func TestInviteRefusesAMemberOfAnotherBusiness(t *testing.T) {
+	t.Parallel()
+	busy, member := uuid.New(), uuid.New()
+	repo := &memStaff{
+		users:     map[string]uuid.UUID{"+998901110201": busy, "+998901110202": member},
+		members:   map[uuid.UUID]StaffMember{},
+		elsewhere: map[uuid.UUID]uuid.UUID{busy: uuid.New()},
+	}
+	service := NewStaffService(repo)
+	ctx := context.Background()
+	merchantID := uuid.New()
+	owner := Actor{UserID: uuid.New(), Role: RoleOwner}
+
+	if _, err := service.Invite(ctx, owner, merchantID, "+998901110201", RoleCashier); !errors.Is(err, ErrAlreadyInAnotherBusiness) {
+		t.Fatalf("invite from another business: got %v, want ErrAlreadyInAnotherBusiness", err)
+	}
+	if len(repo.members) != 0 || len(repo.audited) != 0 {
+		t.Fatalf("refused invite wrote %d members and %d audit rows", len(repo.members), len(repo.audited))
+	}
+	if _, err := service.Invite(ctx, owner, merchantID, "+998901110202", RoleCashier); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Invite(ctx, owner, merchantID, "+998901110202", RoleManager); !errors.Is(err, ErrAlreadyStaff) {
+		t.Fatalf("second invite: got %v, want ErrAlreadyStaff", err)
 	}
 }

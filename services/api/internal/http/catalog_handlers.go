@@ -186,6 +186,31 @@ func (a *CatalogAPI) GetBusiness(w http.ResponseWriter, r *http.Request, slug ge
 	writeJSON(w, http.StatusOK, mapMerchantProfile(profile))
 }
 
+func (a *CatalogAPI) ListMapLocations(w http.ResponseWriter, r *http.Request) {
+	locations, err := a.catalog.MapLocations(r.Context())
+	if err != nil {
+		a.fail(w, r, err, "")
+		return
+	}
+	items := make([]gen.MapLocation, 0, len(locations))
+	for _, location := range locations {
+		items = append(items, gen.MapLocation{
+			Id:              location.ID,
+			Address:         location.Address,
+			Lat:             float32(location.Lat),
+			Lng:             float32(location.Lng),
+			CitySlug:        location.CitySlug,
+			MerchantSlug:    location.MerchantSlug,
+			MerchantName:    location.MerchantName,
+			LogoUrl:         location.LogoURL,
+			RatingAvg:       float32(location.RatingAvg),
+			RatingCount:     location.RatingCount,
+			ActiveDealCount: location.ActiveDealCount,
+		})
+	}
+	writeJSON(w, http.StatusOK, gen.MapLocationList{Items: items})
+}
+
 func (a *CatalogAPI) GetSearchSuggestions(w http.ResponseWriter, r *http.Request, params gen.GetSearchSuggestionsParams) {
 	locale, err := resolveLocale(params.Locale)
 	if err != nil {
@@ -267,6 +292,19 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 }
 
 func writeProblem(w http.ResponseWriter, r *http.Request, status int, code string, detail *string, errs map[string][]string) {
+	writeProblemBody(w, status, newProblem(r, status, code, detail, errs))
+}
+
+// writeProblemWithRetry writes a problem that tells the client how many seconds to wait.
+func writeProblemWithRetry(w http.ResponseWriter, r *http.Request, status int, code string, retryAfterSeconds int) {
+	problem := newProblem(r, status, code, nil, nil)
+	if retryAfterSeconds > 0 {
+		problem.RetryAfterSeconds = &retryAfterSeconds
+	}
+	writeProblemBody(w, status, problem)
+}
+
+func newProblem(r *http.Request, status int, code string, detail *string, errs map[string][]string) gen.Problem {
 	problem := gen.Problem{
 		Type:     "about:blank",
 		Title:    http.StatusText(status),
@@ -278,6 +316,10 @@ func writeProblem(w http.ResponseWriter, r *http.Request, status int, code strin
 	if len(errs) > 0 {
 		problem.Errors = &errs
 	}
+	return problem
+}
+
+func writeProblemBody(w http.ResponseWriter, status int, problem gen.Problem) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(problem)

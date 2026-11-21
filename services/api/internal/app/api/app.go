@@ -58,14 +58,37 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		redisCache := cache.NewRedis(client)
 		readiness = append(readiness, redisCache.Ping)
 		responseCache = redisCache
-		limiter = ratelimit.NewRedis(client, authRateLimit, authRateWindow)
+		limiter = ratelimit.NewRedis(client)
 	} else {
 		logger.WarnContext(ctx, "REDIS_URL is not set; auth rate limiting is disabled")
 	}
 
-	identityService, err := newIdentityService(cfg, pool, limiter, logger)
+	router, err := newRouter(cfg, pool, limiter, responseCache, allReady(readiness), logger)
 	if err != nil {
 		return err
+	}
+
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.HTTP.Address)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil
+		}
+		return fmt.Errorf("listen on %s: %w", cfg.HTTP.Address, err)
+	}
+
+	server := newServer(cfg.HTTP, router, logger)
+
+	logger.InfoContext(ctx, "api server started", slog.String("address", listener.Addr().String()))
+	return serve(ctx, server, listener, cfg.ShutdownTimeout, logger)
+}
+
+// newRouter wires every service to PostgreSQL and returns the HTTP API. Tests build the same router
+// against a test database, so authorization is checked on the real wiring.
+func newRouter(cfg config.Config, pool *pgxpool.Pool, limiter identity.RateLimiter, responseCache catalog.Cache,
+	readiness httpapi.ReadinessCheck, logger *slog.Logger) (http.Handler, error) {
+	identityService, err := newIdentityService(cfg, pool, limiter, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	catalogService := catalog.NewService(store.NewCatalogRepository(pool), responseCache, time.Now)
@@ -79,42 +102,34 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 
 	mediaStore, err := storage.NewLocal(cfg.MediaDir, cfg.MediaPublicBase)
 	if err != nil {
-		return fmt.Errorf("configure media storage: %w", err)
+		return nil, fmt.Errorf("configure media storage: %w", err)
 	}
 	workspaceService := merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now)
 	documentStore, err := storage.NewPrivate(cfg.DocumentsDir)
 	if err != nil {
-		return fmt.Errorf("configure document storage: %w", err)
+		return nil, fmt.Errorf("configure document storage: %w", err)
 	}
 	mediaService := merchant.NewMediaService(store.NewMerchantMediaRepository(pool), mediaStore, time.Now)
 
-	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.HTTP.Address)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil
-		}
-		return fmt.Errorf("listen on %s: %w", cfg.HTTP.Address, err)
-	}
-
 	authAPI := httpapi.NewAuthAPI(identityService, logger, httpapi.AuthOptions{
-		SecureCookies:     cfg.Environment != "development",
-		TrustProxyHeaders: cfg.TrustProxyHeaders,
-		RefreshTokenTTL:   cfg.Auth.RefreshTokenTTL,
+		SecureCookies:   cfg.Environment != "development",
+		TrustedProxies:  cfg.TrustedProxies,
+		RefreshTokenTTL: cfg.Auth.RefreshTokenTTL,
 	})
 
 	commerceService, err := commerceapp.New(cfg, pool, store.NewCatalogRepository(pool), logger)
 	if err != nil {
-		return fmt.Errorf("configure commerce: %w", err)
+		return nil, fmt.Errorf("configure commerce: %w", err)
 	}
 
-	router := httpapi.NewRouter(httpapi.RouterOptions{
+	return httpapi.NewRouter(httpapi.RouterOptions{
 		Logger:         logger,
-		ReadinessCheck: allReady(readiness),
+		ReadinessCheck: readiness,
 		Catalog:        httpapi.NewCatalogAPI(catalogService, logger),
 		Internal:       httpapi.NewInternalAPI(cfg.InternalToken, invalidateCatalog),
 		Auth:           authAPI,
 		Commerce:       httpapi.NewCommerceAPI(commerceService, authAPI, logger),
-		Merchant:       httpapi.NewMerchantAPI(merchant.NewService(store.NewMerchantRepository(pool), time.Now), authAPI, logger),
+		Merchant:       httpapi.NewMerchantAPI(merchant.NewService(store.NewMerchantRepository(pool), time.Now), workspaceService, authAPI, logger),
 		MerchantWorkspace: httpapi.NewMerchantWorkspaceAPI(
 			merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now), authAPI, logger),
 		MerchantMedia: httpapi.NewMerchantMediaAPI(mediaService, workspaceService, authAPI, logger),
@@ -123,7 +138,7 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			workspaceService, authAPI, logger),
 		MerchantPanel:     httpapi.NewMerchantPanelAPI(merchant.NewPanelService(store.NewMerchantPanelRepository(pool), time.Now), merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now), authAPI, logger),
 		MerchantStaff:     httpapi.NewMerchantStaffAPI(merchant.NewStaffService(store.NewMerchantStaffRepository(pool)), merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now), authAPI, logger),
-		MerchantDocuments: httpapi.NewMerchantDocumentAPI(merchant.NewDocumentService(store.NewMerchantDocumentRepository(pool), documentStore), merchant.NewReviewService(store.NewMerchantReviewRepository(pool)), authAPI, logger),
+		MerchantDocuments: httpapi.NewMerchantDocumentAPI(merchant.NewDocumentService(store.NewMerchantDocumentRepository(pool), documentStore), merchant.NewReviewService(store.NewMerchantReviewRepository(pool)), workspaceService, authAPI, logger),
 		MerchantReview:    httpapi.NewMerchantReviewAPI(merchant.NewReviewService(store.NewMerchantReviewRepository(pool)), authAPI, logger),
 		Moderation:        httpapi.NewModerationAPI(moderation.NewService(store.NewModerationRepository(pool, store.NewCatalogRepository(pool), store.NewMerchantDealRepository(pool, store.NewCatalogRepository(pool))), time.Now), authAPI, logger),
 		MerchantRedemption: httpapi.NewMerchantRedemptionAPI(
@@ -136,17 +151,10 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			redemption.NewService(store.NewRedemptionRepository(pool, store.NewCommerceRepository(pool), store.NewCatalogRepository(pool)), verifyQRToken(commerceService), time.Now).WithBackupCodes(commerceService.Signer().BackupCodeHMAC),
 			workspaceService, authAPI, logger),
 		MediaFiles: http.StripPrefix("/media/", http.FileServer(http.Dir(mediaStore.Root()))),
-	})
-	server := newServer(cfg.HTTP, router, logger)
-
-	logger.InfoContext(ctx, "api server started", slog.String("address", listener.Addr().String()))
-	return serve(ctx, server, listener, cfg.ShutdownTimeout, logger)
+	}), nil
 }
 
 const (
-	// authRateLimit is the number of attempts allowed per key in each authRateWindow.
-	authRateLimit  = 10
-	authRateWindow = 15 * time.Minute
 	verifyEmailTTL = 24 * time.Hour
 )
 

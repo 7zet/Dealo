@@ -31,22 +31,13 @@ func NewMerchantDealAPI(deals *merchant.DealService, workspace *merchant.Workspa
 	return &MerchantDealAPI{deals: deals, workspace: workspace, auth: auth, logger: logger}
 }
 
-// scope authenticates the caller and resolves their merchant and role.
-func (a *MerchantDealAPI) scope(w http.ResponseWriter, r *http.Request, mayEdit bool) (merchant.Actor, uuid.UUID, bool) {
-	account, ok := a.auth.authenticate(w, r)
-	if !ok {
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	merchantID, role, err := a.workspace.Authorize(r.Context(), account.ID, mayEdit)
-	if err != nil {
-		a.fail(w, r, err)
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	return merchant.Actor{UserID: account.ID, Role: role}, merchantID, true
+// scope resolves the caller's merchant after checking the permission the operation needs.
+func (a *MerchantDealAPI) scope(w http.ResponseWriter, r *http.Request, permission merchant.Permission) (merchant.Actor, uuid.UUID, bool) {
+	return merchantScope(w, r, a.auth, a.workspace, a.logger, permission)
 }
 
 func (a *MerchantDealAPI) ListMerchantDeals(w http.ResponseWriter, r *http.Request, params gen.ListMerchantDealsParams) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -72,7 +63,7 @@ func (a *MerchantDealAPI) ListMerchantDeals(w http.ResponseWriter, r *http.Reque
 }
 
 func (a *MerchantDealAPI) CreateMerchantDeal(w http.ResponseWriter, r *http.Request) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -89,7 +80,7 @@ func (a *MerchantDealAPI) CreateMerchantDeal(w http.ResponseWriter, r *http.Requ
 }
 
 func (a *MerchantDealAPI) GetMerchantDeal(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	_, merchantID, ok := a.scope(w, r, false)
+	_, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -102,7 +93,7 @@ func (a *MerchantDealAPI) GetMerchantDeal(w http.ResponseWriter, r *http.Request
 }
 
 func (a *MerchantDealAPI) UpdateMerchantDeal(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -119,7 +110,7 @@ func (a *MerchantDealAPI) UpdateMerchantDeal(w http.ResponseWriter, r *http.Requ
 }
 
 func (a *MerchantDealAPI) DeleteMerchantDeal(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -131,7 +122,7 @@ func (a *MerchantDealAPI) DeleteMerchantDeal(w http.ResponseWriter, r *http.Requ
 }
 
 func (a *MerchantDealAPI) SubmitMerchantDeal(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r, true)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}

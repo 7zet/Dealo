@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,4 +79,70 @@ func cheapestPrice(deal catalog.DealSummary) int64 {
 		}
 	}
 	return cheapest
+}
+
+// Category suggestions once queried a column that migration 00025 renamed, so every search-box
+// suggestion request failed with a 500.
+func TestSuggestionsIncludeCategories(t *testing.T) {
+	fixture := newCatalogFixture(t)
+	suggestions, err := fixture.service.Suggestions(context.Background(), "beauty", "en")
+	if err != nil {
+		t.Fatalf("suggestions: %v", err)
+	}
+	for _, suggestion := range suggestions {
+		if suggestion.Type == "category" {
+			return
+		}
+	}
+	t.Fatalf("expected a category suggestion for %q, got %+v", "beauty", suggestions)
+}
+
+// Suggestions follow the same capability rule as search: deals in closed categories are not offered.
+func TestSuggestionsSkipClosedCategories(t *testing.T) {
+	fixture := newCatalogFixture(t)
+	suggestions, err := fixture.service.Suggestions(context.Background(), "Uy xizmatlari", "uz")
+	if err != nil {
+		t.Fatalf("suggestions: %v", err)
+	}
+	for _, suggestion := range suggestions {
+		if strings.Contains(suggestion.Label, "Uy xizmatlari") {
+			t.Fatalf("closed-category suggestion offered: %+v", suggestion)
+		}
+	}
+}
+
+func TestMapLocationsListOnlyApprovedMerchants(t *testing.T) {
+	fixture := newCatalogFixture(t)
+	ctx := context.Background()
+
+	var hidden string
+	if err := fixture.pool.QueryRow(ctx, `
+		UPDATE merchants SET review_status = 'submitted'
+		WHERE id = (SELECT merchant_id FROM merchant_locations ORDER BY created_at, id LIMIT 1)
+		RETURNING slug`).Scan(&hidden); err != nil {
+		t.Fatalf("hide merchant: %v", err)
+	}
+
+	locations, err := fixture.service.MapLocations(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(locations) == 0 {
+		t.Fatal("expected seeded branch locations on the map")
+	}
+	withDeals := 0
+	for _, location := range locations {
+		if location.MerchantSlug == hidden {
+			t.Fatalf("merchant %q is not approved but its branch %s is on the map", hidden, location.ID)
+		}
+		if location.Lat == 0 || location.Lng == 0 || location.Address == "" || location.MerchantName == "" {
+			t.Fatalf("incomplete map location: %+v", location)
+		}
+		if location.ActiveDealCount > 0 {
+			withDeals++
+		}
+	}
+	if withDeals == 0 {
+		t.Fatal("expected at least one branch with active deals")
+	}
 }

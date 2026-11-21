@@ -44,6 +44,16 @@ type User struct {
 	Currency        string
 	EmailVerifiedAt *time.Time
 	Status          string
+	CreatedAt       time.Time
+}
+
+// Membership is a merchant workspace the user holds a merchant role in.
+type Membership struct {
+	MerchantID   uuid.UUID
+	MerchantName string
+	MerchantSlug string
+	Role         Role
+	ReviewStatus string
 }
 
 // Account is a user together with the roles granted to it.
@@ -73,10 +83,10 @@ type NewUser struct {
 	EmailVerified bool
 }
 
-// ProfileUpdate holds the mutable profile fields. Nil means unchanged.
+// ProfileUpdate holds the mutable profile fields. Nil means unchanged. The phone is the OTP sign-in
+// identity and is not part of the profile update; changing it needs a verified OTP flow.
 type ProfileUpdate struct {
 	Name     *string
-	Phone    *string
 	Locale   *string
 	Currency *string
 }

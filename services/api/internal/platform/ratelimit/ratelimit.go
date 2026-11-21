@@ -4,39 +4,52 @@ package ratelimit
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/grupon/grupon/services/api/internal/domain/identity"
 )
 
 const keyPrefix = "ratelimit:"
 
-// Redis counts attempts per key in fixed windows. The first attempt sets the window expiry.
+// Redis counts attempts per key in fixed windows. The first attempt sets the window expiry; the
+// limit and window come from the rule of each call, so different keys can follow different rules.
 type Redis struct {
 	client *redis.Client
-	limit  int64
-	window time.Duration
 }
 
-// NewRedis returns a limiter that allows limit attempts per window for each key.
-func NewRedis(client *redis.Client, limit int, window time.Duration) *Redis {
-	return &Redis{client: client, limit: int64(limit), window: window}
+var _ identity.RateLimiter = (*Redis)(nil)
+
+// NewRedis returns a limiter that stores its counters in Redis.
+func NewRedis(client *redis.Client) *Redis {
+	return &Redis{client: client}
 }
 
-// Allow records one attempt and reports whether it is within the limit.
-func (r *Redis) Allow(ctx context.Context, key string) (bool, error) {
+// Allow records one attempt and reports whether it is within the rule. A denied attempt carries the
+// time left until the key's window resets.
+func (r *Redis) Allow(ctx context.Context, key string, rule identity.RateRule) (identity.RateDecision, error) {
 	fullKey := keyPrefix + key
 	pipe := r.client.TxPipeline()
 	incr := pipe.Incr(ctx, fullKey)
-	pipe.ExpireNX(ctx, fullKey, r.window)
+	pipe.ExpireNX(ctx, fullKey, rule.Window)
+	ttl := pipe.PTTL(ctx, fullKey)
 	if _, err := pipe.Exec(ctx); err != nil {
-		return false, fmt.Errorf("record rate limit attempt: %w", err)
+		return identity.RateDecision{}, fmt.Errorf("record rate limit attempt: %w", err)
 	}
-	return incr.Val() <= r.limit, nil
+	if incr.Val() <= int64(rule.Limit) {
+		return identity.RateDecision{Allowed: true}, nil
+	}
+	wait := ttl.Val()
+	if wait <= 0 || wait > rule.Window {
+		wait = rule.Window
+	}
+	return identity.RateDecision{RetryAfter: wait}, nil
 }
 
 // Disabled allows every attempt. It is used when Redis is not configured.
 type Disabled struct{}
 
 // Allow always permits the attempt.
-func (Disabled) Allow(context.Context, string) (bool, error) { return true, nil }
+func (Disabled) Allow(context.Context, string, identity.RateRule) (identity.RateDecision, error) {
+	return identity.RateDecision{Allowed: true}, nil
+}

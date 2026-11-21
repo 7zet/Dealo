@@ -24,3 +24,15 @@ WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND deleted_at IS NULL;
 INSERT INTO review_reports (review_id, reporter_user_id, reason)
 VALUES (sqlc.arg(review_id), sqlc.arg(reporter_user_id), sqlc.arg(reason))
 ON CONFLICT (review_id, reporter_user_id) DO NOTHING;
+
+-- name: ListUserReviews :many
+-- Every review the user still has, whatever its moderation status, newest first.
+SELECT r.id, r.deal_id, r.merchant_id, r.user_id, r.voucher_id, r.rating, r.text, r.locale, r.status,
+       r.created_at, d.slug AS deal_slug, d.title AS deal_title, m.display_name AS merchant_name,
+       rr.id AS reply_id, rr.text AS reply_text, rr.created_at AS reply_created_at
+FROM reviews r
+JOIN deals d ON d.id = r.deal_id
+JOIN merchants m ON m.id = r.merchant_id
+LEFT JOIN review_replies rr ON rr.review_id = r.id
+WHERE r.user_id = sqlc.arg(user_id) AND r.deleted_at IS NULL
+ORDER BY r.created_at DESC, r.id DESC;

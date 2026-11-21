@@ -202,6 +202,21 @@ paths:
             },
           default: { $ref: '#/components/responses/Problem' },
         }
+  /api/v1/map/locations:
+    get:
+      tags: [Catalog]
+      operationId: listMapLocations
+      summary: List every branch of approved merchants for the public map
+      responses:
+        {
+          '200':
+            {
+              description: Branch locations,
+              content:
+                { application/json: { schema: { $ref: '#/components/schemas/MapLocationList' } } },
+            },
+          default: { $ref: '#/components/responses/Problem' },
+        }
   /api/v1/search/suggestions:
     get:
       tags: [Catalog]
@@ -447,10 +462,11 @@ paths:
         {
           '200':
             {
-              description: Reviews,
+              description: 'Reviews by the current user, newest first, with the reviewed deal',
               content:
-                { application/json: { schema: { $ref: '#/components/schemas/ReviewList' } } },
+                { application/json: { schema: { $ref: '#/components/schemas/MyReviewList' } } },
             },
+          default: { $ref: '#/components/responses/Problem' },
         }
   /api/v1/reviews:
     post:
@@ -966,8 +982,18 @@ paths:
       security: [{ cookieAuth: [] }, { bearerAuth: [] }]
       parameters:
         [
-          { name: from, in: query, required: true, schema: { type: string, format: date } },
-          { name: to, in: query, required: true, schema: { type: string, format: date } },
+          {
+            name: from,
+            in: query,
+            description: Required. Checked after authorization so a role without access gets 403 first.,
+            schema: { type: string, format: date },
+          },
+          {
+            name: to,
+            in: query,
+            description: Required. Checked after authorization so a role without access gets 403 first.,
+            schema: { type: string, format: date },
+          },
         ]
       responses:
         {
@@ -1749,6 +1775,12 @@ components:
           instance: { type: string, format: uri-reference },
           code: { type: string, pattern: '^[a-z0-9_]+$' },
           errors: { type: object, additionalProperties: { type: array, items: { type: string } } },
+          retry_after_seconds:
+            {
+              type: integer,
+              minimum: 1,
+              description: 'Seconds to wait before retrying; set on 429 answers together with the Retry-After header.',
+            },
         }
     PageMeta:
       type: object
@@ -1895,6 +1927,39 @@ components:
       required: [items]
       properties:
         { items: { type: array, items: { $ref: '#/components/schemas/MerchantLocation' } } }
+    MapLocation:
+      type: object
+      required:
+        [
+          id,
+          address,
+          lat,
+          lng,
+          city_slug,
+          merchant_slug,
+          merchant_name,
+          rating_avg,
+          rating_count,
+          active_deal_count,
+        ]
+      properties:
+        {
+          id: { $ref: '#/components/schemas/Uuid' },
+          address: { type: string },
+          lat: { type: number },
+          lng: { type: number },
+          city_slug: { type: string },
+          merchant_slug: { type: string },
+          merchant_name: { type: string },
+          logo_url: { type: string },
+          rating_avg: { type: number },
+          rating_count: { type: integer, minimum: 0 },
+          active_deal_count: { type: integer, minimum: 0 },
+        }
+    MapLocationList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/MapLocation' } } }
     Merchant:
       type: object
       required:
@@ -2059,6 +2124,62 @@ components:
       type: object
       required: [items]
       properties: { items: { type: array, items: { $ref: '#/components/schemas/Review' } } }
+    MyReview:
+      description: A review the current user wrote, including hidden ones, with the reviewed deal.
+      allOf:
+        [
+          { $ref: '#/components/schemas/Review' },
+          {
+            type: object,
+            required: [deal_slug, deal_title, merchant_name],
+            properties:
+              {
+                deal_slug: { type: string },
+                deal_title: { $ref: '#/components/schemas/LocalizedText' },
+                merchant_name: { type: string },
+              },
+          },
+        ]
+    MyReviewList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/MyReview' } } }
+    MerchantPermission:
+      description: >-
+        What a merchant role may do in its workspace. The server decides the list from the role; the
+        web shows only what the list allows. workspace.view reads the workspace; workspace.edit changes
+        it; payouts.view reads payouts; staff.manage invites, re-roles and removes staff; business.manage
+        uploads documents and sends the business to review; redeem looks up, redeems and reverses the
+        caller's own redemptions and lists branches; redemptions.view_all reads and reverses every
+        redemption of the business.
+      type: string
+      enum:
+        [
+          workspace.view,
+          workspace.edit,
+          payouts.view,
+          staff.manage,
+          business.manage,
+          redeem,
+          redemptions.view_all,
+        ]
+    MerchantMembership:
+      description: A merchant workspace the user belongs to, the role held there and what it allows.
+      type: object
+      required: [merchant_id, merchant_name, merchant_slug, role, review_status, permissions]
+      properties:
+        {
+          merchant_id: { $ref: '#/components/schemas/Uuid' },
+          merchant_name: { type: string },
+          merchant_slug: { type: string },
+          role: { type: string, enum: [merchant_owner, merchant_manager, merchant_cashier] },
+          review_status:
+            {
+              type: string,
+              enum: [draft, submitted, in_review, approved, rejected, suspended, terminated],
+            },
+          permissions: { type: array, items: { $ref: '#/components/schemas/MerchantPermission' } },
+        }
     MerchantProfile:
       allOf:
         [
@@ -2120,6 +2241,13 @@ components:
           email_verified_at: { type: [string, 'null'], format: date-time },
           status: { type: string, enum: [active, blocked] },
           roles: { type: array, items: { $ref: '#/components/schemas/Role' } },
+          created_at: { type: string, format: date-time, description: When the account was created. },
+          memberships:
+            {
+              type: array,
+              description: Merchant workspaces of the user. Returned by getMe only.,
+              items: { $ref: '#/components/schemas/MerchantMembership' },
+            },
         }
     PhoneCodeRequest:
       type: object
@@ -2155,11 +2283,12 @@ components:
         }
     UpdateProfileRequest:
       type: object
+      description: The phone is the sign-in identity and cannot be changed here without verification.
       minProperties: 1
+      additionalProperties: false
       properties:
         {
           name: { type: string, minLength: 1, maxLength: 200 },
-          phone: { type: [string, 'null'] },
           locale: { $ref: '#/components/schemas/Locale' },
           currency: { $ref: '#/components/schemas/Currency' },
         }
@@ -2287,6 +2416,16 @@ components:
           option: { $ref: '#/components/schemas/DealOption' },
           merchant: { $ref: '#/components/schemas/Merchant' },
           terms_snapshot: { $ref: '#/components/schemas/LocalizedText' },
+          title_snapshot:
+            {
+              $ref: '#/components/schemas/LocalizedText',
+              description: Option title the buyer agreed to at purchase; later deal edits do not change it.,
+            },
+          unit_price_snapshot:
+            {
+              $ref: '#/components/schemas/Money',
+              description: Price paid per unit at purchase; later deal edits do not change it.,
+            },
           buyer_first_name: { type: string },
           code:
             {
@@ -2589,7 +2728,21 @@ components:
     Metric:
       type: object
       required: [value, change_percent]
-      properties: { value: { type: integer, format: int64 }, change_percent: { type: number } }
+      properties:
+        {
+          value: { type: integer, format: int64 },
+          change_percent:
+            {
+              type: number,
+              description: 'Change against previous_value; 0 when previous_value is 0 or absent.',
+            },
+          previous_value:
+            {
+              type: integer,
+              format: int64,
+              description: 'The same number for the previous window. Absent when the metric is not compared. A 0 means there is no baseline, so change_percent carries no meaning.',
+            },
+        }
     ChartPoint:
       type: object
       required: [date, value]

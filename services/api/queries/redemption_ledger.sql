@@ -68,10 +68,15 @@ VALUES (sqlc.arg(user_id), 'voucher_redeemed', sqlc.arg(voucher_id), sqlc.arg(me
 SELECT (COALESCE(MAX(sequence), 0) + 1)::int AS next_sequence FROM redemptions WHERE voucher_id = sqlc.arg(voucher_id);
 
 -- name: RedemptionAttemptStats :one
-SELECT COUNT(*) FILTER (WHERE created_at > sqlc.arg(minute_since))::int AS last_minute,
-       COUNT(*) FILTER (WHERE failed)::int AS failed_recent
-FROM redemption_attempts
-WHERE staff_user_id = sqlc.arg(staff_user_id) AND created_at > sqlc.arg(block_since);
+-- block_started_at is the failure at block_rank (0-based, newest first) inside the block window: the
+-- block lifts one window after it, so the scanner can say how long to wait.
+SELECT COUNT(*) FILTER (WHERE a.created_at > sqlc.arg(minute_since))::int AS last_minute,
+       COUNT(*) FILTER (WHERE a.failed)::int AS failed_recent,
+       (SELECT f.created_at FROM redemption_attempts f
+        WHERE f.staff_user_id = sqlc.arg(staff_user_id) AND f.failed AND f.created_at > sqlc.arg(block_since)
+        ORDER BY f.created_at DESC OFFSET sqlc.arg(block_rank)::int LIMIT 1)::timestamptz AS block_started_at
+FROM redemption_attempts a
+WHERE a.staff_user_id = sqlc.arg(staff_user_id) AND a.created_at > sqlc.arg(block_since);
 
 -- name: InsertRedemptionAttempt :exec
 INSERT INTO redemption_attempts (staff_user_id, failed) VALUES (sqlc.arg(staff_user_id), sqlc.arg(failed));

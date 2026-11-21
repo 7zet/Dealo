@@ -98,3 +98,26 @@ func TestMultiUseVoucherAcceptsItsSecondVisit(t *testing.T) {
 		t.Fatalf("redemptions_used = %d, want 2", got)
 	}
 }
+
+// Scanner block: with eleven failed lookups in the window, the block starts at the tenth newest one.
+func TestAttemptStatsReportsWhenTheScannerBlockStarted(t *testing.T) {
+	env := newATEnv(t, 1)
+	staff := env.newBuyer(t)
+	ctx := context.Background()
+	repo := store.NewRedemptionRepository(env.fixture.pool, store.NewCommerceRepository(env.fixture.pool), store.NewCatalogRepository(env.fixture.pool))
+	now := time.Now()
+	for i := 0; i < redemption.FailedLookupLimit+1; i++ {
+		at := now.Add(-time.Duration(i) * time.Minute)
+		if _, err := env.fixture.pool.Exec(ctx, `INSERT INTO redemption_attempts (staff_user_id, failed, created_at) VALUES ($1, true, $2)`, staff, at); err != nil {
+			t.Fatalf("insert attempt: %v", err)
+		}
+	}
+	counts, err := repo.AttemptStats(ctx, staff, now.Add(-time.Minute), now.Add(-redemption.BlockWindow))
+	if err != nil {
+		t.Fatalf("attempt stats: %v", err)
+	}
+	want := now.Add(-time.Duration(redemption.FailedLookupLimit-1) * time.Minute)
+	if counts.FailedRecent != redemption.FailedLookupLimit+1 || counts.BlockStartedAt.Sub(want).Abs() > time.Millisecond {
+		t.Fatalf("counts = %+v, want %d failures and block start %v", counts, redemption.FailedLookupLimit+1, want)
+	}
+}

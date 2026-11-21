@@ -288,6 +288,30 @@ func (r *CatalogRepository) MerchantBySlug(ctx context.Context, slug string) (ca
 	}, nil
 }
 
+func (r *CatalogRepository) MapLocations(ctx context.Context) ([]catalog.MapLocation, error) {
+	rows, err := r.queries.ListMapLocationRows(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list map locations: %w", err)
+	}
+	items := make([]catalog.MapLocation, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, catalog.MapLocation{
+			ID:              toUUID(row.ID),
+			Address:         row.Address,
+			Lat:             row.Lat,
+			Lng:             row.Lng,
+			CitySlug:        row.CitySlug,
+			MerchantSlug:    row.MerchantSlug,
+			MerchantName:    row.MerchantName,
+			LogoURL:         textPtr(row.LogoUrl),
+			RatingAvg:       row.RatingAvg,
+			RatingCount:     int(row.RatingCount),
+			ActiveDealCount: int(row.ActiveDealCount),
+		})
+	}
+	return items, nil
+}
+
 func (r *CatalogRepository) MerchantReviews(ctx context.Context, merchantID uuid.UUID, limit int) ([]catalog.Review, error) {
 	rows, err := r.queries.ListPublishedReviewsForMerchant(ctx, sqlc.ListPublishedReviewsForMerchantParams{
 		MerchantID: toPgUUID(merchantID),

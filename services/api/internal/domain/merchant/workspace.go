@@ -81,10 +81,14 @@ type LocationInput struct {
 	Phone        string
 }
 
-// Metric is a headline number with its change against the previous window, in percent.
+// Metric is a headline number with its change against the previous window, in percent. Compared is
+// false for a number with no previous window (active deals); Previous is 0 when that window had nothing,
+// so the change is not a real comparison.
 type Metric struct {
 	Value         int64
 	ChangePercent float64
+	Previous      int64
+	Compared      bool
 }
 
 // ChartPoint is one day of sales in UZS minor units.
@@ -100,6 +104,7 @@ type Dashboard struct {
 	VouchersRedeemed Metric
 	ActiveDeals      Metric
 	SalesChart       []ChartPoint
+	LatestOrders     []OrderRow
 	PendingDeals     []catalog.DealSummary
 }
 
@@ -119,22 +124,27 @@ type WorkspaceRepository interface {
 	ActiveDeals(ctx context.Context, merchantID uuid.UUID) (int64, error)
 	SalesByDay(ctx context.Context, merchantID uuid.UUID, from, to time.Time) ([]ChartPoint, error)
 	PendingDealIDs(ctx context.Context, merchantID uuid.UUID, limit int) ([]uuid.UUID, error)
+	// LatestOrders returns the newest orders that hold one of the merchant's deals.
+	LatestOrders(ctx context.Context, merchantID uuid.UUID, limit int) ([]OrderRow, error)
 	DealSummaries(ctx context.Context, ids []uuid.UUID) ([]catalog.DealSummary, error)
 }
 
 var (
 	hoursKeyPattern = regexp.MustCompile(`^(mon|tue|wed|thu|fri|sat|sun)$`)
-	websitePattern  = regexp.MustCompile(`^https?://[^\s]+$`)
+	// hoursRangePattern is one day's opening hours, "HH:MM-HH:MM", on a 24-hour clock.
+	hoursRangePattern = regexp.MustCompile(`^([01][0-9]|2[0-3]):([0-5][0-9])-([01][0-9]|2[0-4]):([0-5][0-9])$`)
+	websitePattern    = regexp.MustCompile(`^https?://[^\s]+$`)
 )
 
-// Authorize resolves the merchant for the signed-in account. Managers and owners edit the
-// business; cashiers only redeem, so they are refused here as well as at the HTTP layer.
-func (s *WorkspaceService) Authorize(ctx context.Context, userID uuid.UUID, mayEdit bool) (uuid.UUID, string, error) {
+// Authorize resolves the merchant for the signed-in account and checks that its role holds the
+// permission the operation needs (see permissions.go). It returns ErrNoMerchant for an account
+// without a merchant role and ErrForbidden when the role lacks the permission.
+func (s *WorkspaceService) Authorize(ctx context.Context, userID uuid.UUID, permission Permission) (uuid.UUID, string, error) {
 	merchantID, role, err := s.repo.RoleFor(ctx, userID)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
-	if mayEdit && role == RoleCashier {
+	if !Can(role, permission) {
 		return uuid.Nil, "", ErrForbidden
 	}
 	return merchantID, role, nil
@@ -289,14 +299,24 @@ func (s *WorkspaceService) Dashboard(ctx context.Context, merchantID uuid.UUID) 
 	if err != nil {
 		return Dashboard{}, err
 	}
+	latest, err := s.repo.LatestOrders(ctx, merchantID, 5)
+	if err != nil {
+		return Dashboard{}, err
+	}
 	return Dashboard{
-		TotalSales:       Metric{Value: sales, ChangePercent: changePercent(sales, salesPrevious)},
-		VouchersSold:     Metric{Value: sold, ChangePercent: changePercent(sold, soldPrevious)},
-		VouchersRedeemed: Metric{Value: redeemed, ChangePercent: changePercent(redeemed, redeemedPrevious)},
+		TotalSales:       compared(sales, salesPrevious),
+		VouchersSold:     compared(sold, soldPrevious),
+		VouchersRedeemed: compared(redeemed, redeemedPrevious),
 		ActiveDeals:      Metric{Value: active},
 		SalesChart:       chart,
+		LatestOrders:     latest,
 		PendingDeals:     pending,
 	}, nil
+}
+
+// compared builds a metric that is set against the previous window.
+func compared(current, previous int64) Metric {
+	return Metric{Value: current, ChangePercent: changePercent(current, previous), Previous: previous, Compared: true}
 }
 
 // changePercent is relative growth. A zero base reports zero rather than an undefined percentage.
@@ -305,6 +325,19 @@ func changePercent(current, previous int64) float64 {
 		return 0
 	}
 	return float64(current-previous) * 100 / float64(previous)
+}
+
+// validHoursRange accepts "HH:MM-HH:MM" with real clock times. The close may be 24:00 or earlier than
+// the open for a place that works past midnight; an empty day (open equals close) is refused.
+func validHoursRange(value string) bool {
+	parts := hoursRangePattern.FindStringSubmatch(strings.TrimSpace(value))
+	if parts == nil {
+		return false
+	}
+	if parts[3] == "24" && parts[4] != "00" {
+		return false
+	}
+	return parts[1]+parts[2] != parts[3]+parts[4]
 }
 
 func validateLocation(input LocationInput) error {
@@ -323,7 +356,8 @@ func validateLocation(input LocationInput) error {
 		if !hoursKeyPattern.MatchString(key) {
 			return &InvalidInputError{Field: "opening_hours", Code: "unknown_day"}
 		}
-		if _, ok := value.(string); !ok {
+		hours, ok := value.(string)
+		if !ok || !validHoursRange(hours) {
 			return &InvalidInputError{Field: "opening_hours", Code: "invalid_hours"}
 		}
 	}

@@ -34,13 +34,14 @@ func (r *Repository) CreatePhoneUser(_ context.Context, phone, email string) (id
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	user := identity.User{
-		ID:       uuid.Must(uuid.NewV7()),
-		Email:    email,
-		Phone:    &phone,
-		Name:     "Foydalanuvchi",
-		Locale:   "uz",
-		Currency: "UZS",
-		Status:   identity.StatusActive,
+		ID:        uuid.Must(uuid.NewV7()),
+		Email:     email,
+		Phone:     &phone,
+		Name:      "Foydalanuvchi",
+		Locale:    "uz",
+		Currency:  "UZS",
+		Status:    identity.StatusActive,
+		CreatedAt: r.now(),
 	}
 	r.users[user.ID] = user
 	r.roles[user.ID] = []identity.Role{identity.RoleUser}

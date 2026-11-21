@@ -2,11 +2,12 @@
 -- Every query is scoped by merchant_id; callers never pass an unscoped id.
 
 -- name: MerchantRoleForUser :one
+-- An account has at most one merchant role (role_assignments_one_merchant_per_user). A soft-deleted
+-- business gives no workspace.
 SELECT ra.merchant_id, ra.role::text AS role
 FROM role_assignments ra
-WHERE ra.user_id = $1 AND ra.merchant_id IS NOT NULL
-ORDER BY ra.created_at, ra.id
-LIMIT 1;
+JOIN merchants m ON m.id = ra.merchant_id AND m.deleted_at IS NULL
+WHERE ra.user_id = $1 AND ra.merchant_id IS NOT NULL;
 
 -- name: GetMerchantWorkspace :one
 SELECT id, slug, legal_name, display_name, description, logo_url, cover_url, phone, website,

@@ -157,6 +157,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/map/locations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List every branch of approved merchants for the public map */
+    get: operations['listMapLocations'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/search/suggestions': {
     parameters: {
       query?: never;
@@ -1453,6 +1470,8 @@ export interface components {
       errors?: {
         [key: string]: string[];
       };
+      /** @description Seconds to wait before retrying; set on 429 answers together with the Retry-After header. */
+      retry_after_seconds?: number;
     };
     PageMeta: {
       page: number;
@@ -1559,6 +1578,22 @@ export interface components {
     LocationList: {
       items: components['schemas']['MerchantLocation'][];
     };
+    MapLocation: {
+      id: components['schemas']['Uuid'];
+      address: string;
+      lat: number;
+      lng: number;
+      city_slug: string;
+      merchant_slug: string;
+      merchant_name: string;
+      logo_url?: string;
+      rating_avg: number;
+      rating_count: number;
+      active_deal_count: number;
+    };
+    MapLocationList: {
+      items: components['schemas']['MapLocation'][];
+    };
     Merchant: {
       id: components['schemas']['Uuid'];
       slug: string;
@@ -1651,6 +1686,39 @@ export interface components {
     ReviewList: {
       items: components['schemas']['Review'][];
     };
+    /** @description A review the current user wrote, including hidden ones, with the reviewed deal. */
+    MyReview: components['schemas']['Review'] & {
+      deal_slug: string;
+      deal_title: components['schemas']['LocalizedText'];
+      merchant_name: string;
+    };
+    MyReviewList: {
+      items: components['schemas']['MyReview'][];
+    };
+    /**
+     * @description What a merchant role may do in its workspace. The server decides the list from the role; the web shows only what the list allows. workspace.view reads the workspace; workspace.edit changes it; payouts.view reads payouts; staff.manage invites, re-roles and removes staff; business.manage uploads documents and sends the business to review; redeem looks up, redeems and reverses the caller's own redemptions and lists branches; redemptions.view_all reads and reverses every redemption of the business.
+     * @enum {string}
+     */
+    MerchantPermission:
+      | 'workspace.view'
+      | 'workspace.edit'
+      | 'payouts.view'
+      | 'staff.manage'
+      | 'business.manage'
+      | 'redeem'
+      | 'redemptions.view_all';
+    /** @description A merchant workspace the user belongs to, the role held there and what it allows. */
+    MerchantMembership: {
+      merchant_id: components['schemas']['Uuid'];
+      merchant_name: string;
+      merchant_slug: string;
+      /** @enum {string} */
+      role: 'merchant_owner' | 'merchant_manager' | 'merchant_cashier';
+      /** @enum {string} */
+      review_status:
+        'draft' | 'submitted' | 'in_review' | 'approved' | 'rejected' | 'suspended' | 'terminated';
+      permissions: components['schemas']['MerchantPermission'][];
+    };
     MerchantProfile: components['schemas']['Merchant'] & {
       deals: components['schemas']['DealSummary'][];
       reviews: components['schemas']['Review'][];
@@ -1692,6 +1760,13 @@ export interface components {
       /** @enum {string} */
       status: 'active' | 'blocked';
       roles: components['schemas']['Role'][];
+      /**
+       * Format: date-time
+       * @description When the account was created.
+       */
+      created_at?: string;
+      /** @description Merchant workspaces of the user. Returned by getMe only. */
+      memberships?: components['schemas']['MerchantMembership'][];
     };
     PhoneCodeRequest: {
       phone: string;
@@ -1713,9 +1788,9 @@ export interface components {
       /** @constant */
       expires_in: 900;
     };
+    /** @description The phone is the sign-in identity and cannot be changed here without verification. */
     UpdateProfileRequest: {
       name?: string;
-      phone?: string | null;
       locale?: components['schemas']['Locale'];
       currency?: components['schemas']['Currency'];
     };
@@ -1785,6 +1860,10 @@ export interface components {
       option: components['schemas']['DealOption'];
       merchant: components['schemas']['Merchant'];
       terms_snapshot: components['schemas']['LocalizedText'];
+      /** @description Option title the buyer agreed to at purchase; later deal edits do not change it. */
+      title_snapshot?: components['schemas']['LocalizedText'];
+      /** @description Price paid per unit at purchase; later deal edits do not change it. */
+      unit_price_snapshot?: components['schemas']['Money'];
       buyer_first_name?: string;
       code: string;
       /** @description Rotates every 30 seconds; the voucher page must refetch. */
@@ -1980,7 +2059,13 @@ export interface components {
     Metric: {
       /** Format: int64 */
       value: number;
+      /** @description Change against previous_value; 0 when previous_value is 0 or absent. */
       change_percent: number;
+      /**
+       * Format: int64
+       * @description The same number for the previous window. Absent when the metric is not compared. A 0 means there is no baseline, so change_percent carries no meaning.
+       */
+      previous_value?: number;
     };
     ChartPoint: {
       /** Format: date */
@@ -2441,6 +2526,27 @@ export interface operations {
       default: components['responses']['Problem'];
     };
   };
+  listMapLocations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Branch locations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MapLocationList'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   getSearchSuggestions: {
     parameters: {
       query: {
@@ -2767,15 +2873,16 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Reviews */
+      /** @description Reviews by the current user, newest first, with the reviewed deal */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['ReviewList'];
+          'application/json': components['schemas']['MyReviewList'];
         };
       };
+      default: components['responses']['Problem'];
     };
   };
   createReview: {
@@ -3445,9 +3552,11 @@ export interface operations {
   };
   getMerchantAnalytics: {
     parameters: {
-      query: {
-        from: string;
-        to: string;
+      query?: {
+        /** @description Required. Checked after authorization so a role without access gets 403 first. */
+        from?: string;
+        /** @description Required. Checked after authorization so a role without access gets 403 first. */
+        to?: string;
       };
       header?: never;
       path?: never;

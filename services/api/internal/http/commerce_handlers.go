@@ -366,7 +366,7 @@ func mapOrder(order commerce.Order) gen.Order {
 
 func mapVoucher(view commerce.VoucherView) gen.Voucher {
 	merchant := mapMerchant(merchantOf(view.Deal))
-	return gen.Voucher{
+	voucher := gen.Voucher{
 		Id:               gen.Uuid(view.Voucher.ID),
 		Code:             view.Voucher.Code,
 		QrToken:          view.Voucher.QRToken,
@@ -381,6 +381,13 @@ func mapVoucher(view commerce.VoucherView) gen.Voucher {
 		Option:           mapOptionRecord(view.Option),
 		TermsSnapshot:    mapText(view.Voucher.Terms),
 	}
+	// Purchase snapshot (AT-06). Vouchers always have one; the guard keeps hand-built views valid.
+	if view.Voucher.UnitPrice > 0 {
+		title := mapText(view.Voucher.Title)
+		voucher.TitleSnapshot = &title
+		voucher.UnitPriceSnapshot = &gen.Money{Amount: view.Voucher.UnitPrice, Currency: gen.MoneyCurrencyUZS}
+	}
+	return voucher
 }
 
 func merchantOf(deal catalog.DealSummary) catalog.Merchant {

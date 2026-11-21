@@ -176,7 +176,12 @@ func (s *Service) Profile(ctx context.Context, userID uuid.UUID) (Account, error
 	return s.account(ctx, user)
 }
 
-// UpdateProfile applies the provided profile fields. An empty phone clears it.
+// Memberships returns the merchant workspaces the user holds a merchant role in.
+func (s *Service) Memberships(ctx context.Context, userID uuid.UUID) ([]Membership, error) {
+	return s.repo.ListMemberships(ctx, userID)
+}
+
+// UpdateProfile applies the provided profile fields.
 func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, update ProfileUpdate) (Account, error) {
 	if update.Name != nil {
 		name := strings.TrimSpace(*update.Name)
@@ -184,10 +189,6 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, update Pr
 			return Account{}, err
 		}
 		update.Name = &name
-	}
-	if update.Phone != nil {
-		phone := strings.TrimSpace(*update.Phone)
-		update.Phone = &phone
 	}
 	if update.Locale != nil && !LocaleValid(*update.Locale) {
 		return Account{}, &ValidationError{Field: "locale", Code: "unsupported"}
@@ -269,23 +270,34 @@ const (
 	kindVerifyEmail = "verify_email"
 )
 
-// allow spends one attempt on every key. A limiter failure is logged and the request is allowed,
-// so a Redis outage does not lock every user out.
-func (s *Service) allow(ctx context.Context, keys ...string) error {
+// rateCheck is one key spent under one rule.
+type rateCheck struct {
+	key  string
+	rule RateRule
+}
+
+// allow spends one attempt on every key. The first exhausted key stops the request with its wait.
+// A limiter failure is logged and the request is allowed, so a Redis outage does not lock every
+// user out.
+func (s *Service) allow(ctx context.Context, checks ...rateCheck) error {
 	if s.limiter == nil {
 		return nil
 	}
-	for _, key := range keys {
-		if key == "" {
+	for _, check := range checks {
+		if check.key == "" {
 			continue
 		}
-		ok, err := s.limiter.Allow(ctx, key)
+		decision, err := s.limiter.Allow(ctx, check.key, check.rule)
 		if err != nil {
 			s.logger.WarnContext(ctx, "rate limiter unavailable; allowing request", slogError(err))
 			continue
 		}
-		if !ok {
-			return ErrRateLimited
+		if !decision.Allowed {
+			wait := decision.RetryAfter
+			if wait <= 0 {
+				wait = check.rule.Window
+			}
+			return &RetryAfterError{Err: ErrRateLimited, RetryAfter: wait}
 		}
 	}
 	return nil

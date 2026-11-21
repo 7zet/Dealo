@@ -218,6 +218,16 @@ func TestScannerLimitsSlowBurstsAndBlocksFailedCodes(t *testing.T) {
 		t.Fatalf("after ten failed codes: got %v, want ErrScannerBlocked", err)
 	}
 
+	// The tenth newest failure was four minutes ago, so the block lifts in eleven minutes.
+	timed := NewService(limitedRepo{fakeRepo: repo, counts: AttemptCounts{FailedRecent: FailedLookupLimit, BlockStartedAt: now.Add(-4 * time.Minute)}}, nil, func() time.Time { return now })
+	_, err := timed.Lookup(context.Background(), merchantID, staff, "", repo.voucher.Code)
+	if got := RetryAfterOf(err); got != 11*time.Minute {
+		t.Fatalf("retry after = %v, want 11m (err %v)", got, err)
+	}
+	if got := RetryAfterOf(ErrTooManyAttempts); got != 0 {
+		t.Fatalf("retry after for another error = %v, want 0", got)
+	}
+
 	if _, err := service.Lookup(context.Background(), merchantID, staff, "", repo.voucher.Code); err != nil {
 		t.Fatalf("normal lookup: %v", err)
 	}

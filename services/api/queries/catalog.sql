@@ -32,6 +32,26 @@ JOIN cities ci ON ci.id = ml.city_id
 WHERE ml.merchant_id = $1
 ORDER BY ml.created_at, ml.id;
 
+-- name: ListMapLocationRows :many
+-- Every branch of an approved merchant, with the number of publishable deals redeemable there.
+SELECT ml.id, ml.address, ml.lat::float8 AS lat, ml.lng::float8 AS lng,
+       ci.slug AS city_slug, m.slug AS merchant_slug, m.display_name AS merchant_name, m.logo_url,
+       m.rating_avg::float8 AS rating_avg, m.rating_count,
+       (SELECT COUNT(*)
+          FROM deal_locations dl
+          JOIN deals d ON d.id = dl.deal_id
+          JOIN categories cat ON cat.id = d.category_id AND cat.searchable = true
+         WHERE dl.merchant_location_id = ml.id
+           AND d.deleted_at IS NULL
+           AND d.status = 'active'
+           AND d.ends_at > now()
+           AND EXISTS (SELECT 1 FROM deal_options o WHERE o.deal_id = d.id AND o.is_active = true)
+       )::int AS active_deal_count
+FROM merchant_locations ml
+JOIN merchants m ON m.id = ml.merchant_id AND m.review_status = 'approved' AND m.deleted_at IS NULL
+JOIN cities ci ON ci.id = ml.city_id
+ORDER BY m.display_name, ml.created_at, ml.id;
+
 -- name: ListDealLocationRows :many
 SELECT ml.id, ml.address, ml.lat::float8 AS lat, ml.lng::float8 AS lng, ml.opening_hours, ml.phone,
        ci.id AS city_id, ci.slug AS city_slug, ci.name AS city_name, ci.lat::float8 AS city_lat,
@@ -226,6 +246,7 @@ LIMIT $2;
 SELECT d.slug, d.title
 FROM deals d
 JOIN merchants m ON m.id = d.merchant_id AND m.review_status = 'approved' AND m.deleted_at IS NULL
+JOIN categories cat ON cat.id = d.category_id AND cat.searchable = true
 WHERE d.deleted_at IS NULL
   AND d.status = 'active'
   AND d.ends_at > now()
@@ -252,7 +273,7 @@ LIMIT sqlc.arg(page_limit);
 -- name: SuggestCategories :many
 SELECT slug, name
 FROM categories
-WHERE is_active = true
+WHERE searchable = true
   AND (
     strpos(lower(immutable_unaccent(concat_ws(' ', name->>'uz', name->>'ru', name->>'en'))),
            lower(immutable_unaccent(sqlc.arg(query)::text))) > 0

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
@@ -28,7 +30,7 @@ func NewMerchantRedemptionAPI(service *redemption.Service, workspace *merchant.W
 }
 
 func (a *MerchantRedemptionAPI) LookupMerchantVoucher(w http.ResponseWriter, r *http.Request) {
-	actor, merchantID, ok := a.scope(w, r)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermRedeem)
 	if !ok {
 		return
 	}
@@ -52,7 +54,7 @@ func (a *MerchantRedemptionAPI) LookupMerchantVoucher(w http.ResponseWriter, r *
 }
 
 func (a *MerchantRedemptionAPI) RedeemMerchantVoucher(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	actor, merchantID, ok := a.scope(w, r)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermRedeem)
 	if !ok {
 		return
 	}
@@ -73,7 +75,7 @@ func (a *MerchantRedemptionAPI) RedeemMerchantVoucher(w http.ResponseWriter, r *
 }
 
 func (a *MerchantRedemptionAPI) ListMerchantRedemptions(w http.ResponseWriter, r *http.Request, params gen.ListMerchantRedemptionsParams) {
-	actor, merchantID, ok := a.scope(w, r)
+	actor, merchantID, ok := a.scope(w, r, merchant.PermRedeem)
 	if !ok {
 		return
 	}
@@ -90,18 +92,9 @@ func (a *MerchantRedemptionAPI) ListMerchantRedemptions(w http.ResponseWriter, r
 	writeJSON(w, http.StatusOK, gen.MerchantRedemptionPage{Items: items, Page: result.Page.Number, PageSize: result.Page.Size, Total: result.Total})
 }
 
-// scope authenticates the caller and resolves their merchant. Any merchant role may redeem.
-func (a *MerchantRedemptionAPI) scope(w http.ResponseWriter, r *http.Request) (merchant.Actor, uuid.UUID, bool) {
-	account, ok := a.auth.authenticate(w, r)
-	if !ok {
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	merchantID, role, err := a.workspace.Authorize(r.Context(), account.ID, false)
-	if err != nil {
-		a.fail(w, r, err)
-		return merchant.Actor{}, uuid.Nil, false
-	}
-	return merchant.Actor{UserID: account.ID, Role: role}, merchantID, true
+// scope resolves the caller's merchant after checking the permission the operation needs.
+func (a *MerchantRedemptionAPI) scope(w http.ResponseWriter, r *http.Request, permission merchant.Permission) (merchant.Actor, uuid.UUID, bool) {
+	return merchantScope(w, r, a.auth, a.workspace, a.logger, permission)
 }
 
 func (a *MerchantRedemptionAPI) fail(w http.ResponseWriter, r *http.Request, err error) {
@@ -113,7 +106,12 @@ func (a *MerchantRedemptionAPI) fail(w http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, redemption.ErrTooManyAttempts):
 		writeProblem(w, r, http.StatusTooManyRequests, "too_many_attempts", nil, nil)
 	case errors.Is(err, redemption.ErrScannerBlocked):
-		writeProblem(w, r, http.StatusTooManyRequests, "scanner_blocked", nil, nil)
+		// The scanner counts down from this wait, sent in both the Retry-After header and the body.
+		seconds := int(redemption.RetryAfterOf(err) / time.Second)
+		if seconds > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(seconds))
+		}
+		writeProblemWithRetry(w, r, http.StatusTooManyRequests, "scanner_blocked", seconds)
 	case errors.Is(err, redemption.ErrInvalidToken):
 		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid_qr", nil, nil)
 	case errors.Is(err, redemption.ErrWrongMerchant), errors.Is(err, merchant.ErrNoMerchant), errors.Is(err, merchant.ErrForbidden):

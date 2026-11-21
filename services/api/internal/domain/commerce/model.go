@@ -189,6 +189,10 @@ type Voucher struct {
 	ValidUntil  time.Time
 	RedeemedAt  *time.Time
 	Terms       catalog.Text
+	// Title and UnitPrice are the order item's purchase snapshot (AT-06). Buyer screens show these,
+	// never the live option, so a later deal edit cannot change what the buyer agreed to.
+	Title     catalog.Text
+	UnitPrice int64
 	// RedemptionsAllowed is the use count copied from the option at purchase time.
 	RedemptionsAllowed int
 	// ZaxiraCodeHMAC is the stored hash of the backup code; the plain code is derived, not stored.

@@ -87,12 +87,13 @@ func (r *Repository) CreateUser(_ context.Context, input identity.NewUser) (iden
 		}
 	}
 	user := identity.User{
-		ID:       uuid.Must(uuid.NewV7()),
-		Email:    input.Email,
-		Name:     input.Name,
-		Locale:   input.Locale,
-		Currency: input.Currency,
-		Status:   identity.StatusActive,
+		ID:        uuid.Must(uuid.NewV7()),
+		Email:     input.Email,
+		Name:      input.Name,
+		Locale:    input.Locale,
+		Currency:  input.Currency,
+		Status:    identity.StatusActive,
+		CreatedAt: r.now(),
 	}
 	if input.EmailVerified {
 		now := r.now()
@@ -143,14 +144,6 @@ func (r *Repository) UpdateProfile(_ context.Context, id uuid.UUID, update ident
 	if update.Name != nil {
 		user.Name = *update.Name
 	}
-	if update.Phone != nil {
-		phone := *update.Phone
-		if phone == "" {
-			user.Phone = nil
-		} else {
-			user.Phone = &phone
-		}
-	}
 	if update.Locale != nil {
 		user.Locale = *update.Locale
 	}
@@ -174,6 +167,11 @@ func (r *Repository) ListRoles(_ context.Context, id uuid.UUID) ([]identity.Role
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]identity.Role(nil), r.roles[id]...), nil
+}
+
+// ListMemberships returns no merchant workspaces; the memory store has no merchants.
+func (r *Repository) ListMemberships(_ context.Context, _ uuid.UUID) ([]identity.Membership, error) {
+	return []identity.Membership{}, nil
 }
 
 func (r *Repository) CreateRefreshToken(_ context.Context, token identity.RefreshToken) error {
@@ -307,7 +305,9 @@ func (m *Mailer) Messages() []mail.Message {
 	return append([]mail.Message(nil), m.messages...)
 }
 
-// Limiter allows at most Max attempts per key and ignores time windows.
+// Limiter counts attempts per key and ignores time windows. Max, when set, replaces every rule's
+// limit so tests can trip the limiter quickly; otherwise the rule passed by the service applies.
+// A denied attempt waits the rule's whole window.
 type Limiter struct {
 	Max int
 
@@ -316,12 +316,19 @@ type Limiter struct {
 }
 
 // Allow counts the attempt and reports whether it is within the limit.
-func (l *Limiter) Allow(_ context.Context, key string) (bool, error) {
+func (l *Limiter) Allow(_ context.Context, key string, rule identity.RateRule) (identity.RateDecision, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.counts == nil {
 		l.counts = map[string]int{}
 	}
 	l.counts[key]++
-	return l.counts[key] <= l.Max, nil
+	limit := rule.Limit
+	if l.Max > 0 {
+		limit = l.Max
+	}
+	if l.counts[key] <= limit {
+		return identity.RateDecision{Allowed: true}, nil
+	}
+	return identity.RateDecision{RetryAfter: rule.Window}, nil
 }

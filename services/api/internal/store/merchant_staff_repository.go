@@ -37,6 +37,18 @@ func (r *MerchantStaffRepository) UserIDByPhone(ctx context.Context, phone strin
 	return toUUID(id), nil
 }
 
+// MerchantOf returns the business the user already holds a merchant role in.
+func (r *MerchantStaffRepository) MerchantOf(ctx context.Context, userID uuid.UUID) (uuid.UUID, bool, error) {
+	id, err := sqlc.New(r.pool).MerchantOfUser(ctx, toPgUUID(userID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, fmt.Errorf("merchant of user: %w", err)
+	}
+	return toUUID(id), true, nil
+}
+
 // List returns the staff of a business, owner first in creation order.
 func (r *MerchantStaffRepository) List(ctx context.Context, merchantID uuid.UUID) ([]merchant.StaffMember, error) {
 	rows, err := sqlc.New(r.pool).ListMerchantStaffRows(ctx, toPgUUID(merchantID))
@@ -45,12 +57,14 @@ func (r *MerchantStaffRepository) List(ctx context.Context, merchantID uuid.UUID
 	}
 	out := make([]merchant.StaffMember, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, staffFromRow(row.ID, row.UserID, row.Name, row.Email, row.Phone, row.Role, string(row.Status)))
+		out = append(out, staffFromRow(row.ID, row.UserID, row.Name, row.Email, row.Phone, row.Role,
+			string(row.Locale), string(row.Currency), string(row.Status)))
 	}
 	return out, nil
 }
 
-// Add creates the role assignment and its audit row together. A second role for the same user is refused.
+// Add creates the role assignment and its audit row together. A second role for the same user is
+// refused by the unique indexes; a concurrent invite that slips past the domain check lands here.
 func (r *MerchantStaffRepository) Add(ctx context.Context, merchantID, userID uuid.UUID, role string, audit merchant.StaffAudit) (uuid.UUID, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -64,6 +78,10 @@ func (r *MerchantStaffRepository) Add(ctx context.Context, merchantID, userID uu
 		MerchantID: toPgUUID(merchantID),
 	})
 	if isUniqueViolation(err) {
+		_ = tx.Rollback(ctx)
+		if current, found, lookupErr := r.MerchantOf(ctx, userID); lookupErr == nil && found && current != merchantID {
+			return uuid.Nil, merchant.ErrAlreadyInAnotherBusiness
+		}
 		return uuid.Nil, merchant.ErrAlreadyStaff
 	}
 	if err != nil {
@@ -90,7 +108,8 @@ func (r *MerchantStaffRepository) Assignment(ctx context.Context, merchantID, as
 	if err != nil {
 		return merchant.StaffMember{}, fmt.Errorf("load staff: %w", err)
 	}
-	return merchant.StaffMember{AssignmentID: toUUID(row.ID), UserID: toUUID(row.UserID), Role: row.Role}, nil
+	return staffFromRow(row.ID, row.UserID, row.Name, row.Email, row.Phone, row.Role,
+		string(row.Locale), string(row.Currency), string(row.Status)), nil
 }
 
 // SetRole changes a manager or cashier role with its audit row.
@@ -160,7 +179,7 @@ func writeStaffAudit(ctx context.Context, queries *sqlc.Queries, audit merchant.
 	return nil
 }
 
-func staffFromRow(assignmentID, userID pgtype.UUID, name, email string, phone pgtype.Text, role, status string) merchant.StaffMember {
+func staffFromRow(assignmentID, userID pgtype.UUID, name, email string, phone pgtype.Text, role, locale, currency, status string) merchant.StaffMember {
 	return merchant.StaffMember{
 		AssignmentID: toUUID(assignmentID),
 		UserID:       toUUID(userID),
@@ -168,6 +187,8 @@ func staffFromRow(assignmentID, userID pgtype.UUID, name, email string, phone pg
 		Email:        email,
 		Phone:        phone.String,
 		Role:         role,
+		Locale:       locale,
+		Currency:     currency,
 		Status:       status,
 	}
 }

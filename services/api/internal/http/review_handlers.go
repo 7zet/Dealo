@@ -24,6 +24,24 @@ func NewReviewAPI(service *reviews.Service, auth *AuthAPI, logger *slog.Logger) 
 	return &ReviewAPI{reviews: service, auth: auth, logger: logger}
 }
 
+// ListMyReviews returns every review of the signed-in user, including hidden and pending ones.
+func (a *ReviewAPI) ListMyReviews(w http.ResponseWriter, r *http.Request) {
+	account, ok := a.auth.authenticate(w, r)
+	if !ok {
+		return
+	}
+	mine, err := a.reviews.ListMine(r.Context(), account.ID)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	items := make([]gen.MyReview, 0, len(mine))
+	for _, review := range mine {
+		items = append(items, mapMyReview(review))
+	}
+	writeJSON(w, http.StatusOK, gen.MyReviewList{Items: items})
+}
+
 func (a *ReviewAPI) CreateReview(w http.ResponseWriter, r *http.Request) {
 	account, ok := a.auth.authenticate(w, r)
 	if !ok {
@@ -132,7 +150,41 @@ func mapReview(review reviews.Review) gen.Review {
 	}
 }
 
+func mapMyReview(review reviews.MyReview) gen.MyReview {
+	item := gen.MyReview{
+		Id:           gen.Uuid(review.ID),
+		DealId:       gen.Uuid(review.DealID),
+		DealSlug:     review.DealSlug,
+		DealTitle:    gen.LocalizedText{Uz: review.DealTitle.Uz, Ru: review.DealTitle.Ru, En: review.DealTitle.En},
+		MerchantId:   gen.Uuid(review.MerchantID),
+		MerchantName: review.MerchantName,
+		UserId:       gen.Uuid(review.UserID),
+		VoucherId:    gen.Uuid(review.VoucherID),
+		Rating:       review.Rating,
+		Text:         review.Text,
+		Locale:       gen.Locale(review.Locale),
+		Status:       gen.MyReviewStatus(review.Status),
+		CreatedAt:    review.CreatedAt,
+	}
+	if review.Reply != nil {
+		item.Reply = &gen.ReviewReply{
+			Id:        gen.Uuid(review.Reply.ID),
+			Text:      review.Reply.Text,
+			CreatedAt: review.Reply.CreatedAt,
+		}
+	}
+	return item
+}
+
 // Delegation from the router.
+
+func (s apiServer) ListMyReviews(w http.ResponseWriter, r *http.Request) {
+	if s.reviewAPI != nil {
+		s.reviewAPI.ListMyReviews(w, r)
+		return
+	}
+	s.ServerInterface.ListMyReviews(w, r)
+}
 
 func (s apiServer) CreateReview(w http.ResponseWriter, r *http.Request) {
 	if s.reviewAPI != nil {

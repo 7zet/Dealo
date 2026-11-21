@@ -17,6 +17,8 @@ type Repository interface {
 	TouchLastLogin(ctx context.Context, id uuid.UUID) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	ListRoles(ctx context.Context, id uuid.UUID) ([]Role, error)
+	// ListMemberships returns the merchant workspaces of the user, without soft-deleted merchants.
+	ListMemberships(ctx context.Context, id uuid.UUID) ([]Membership, error)
 
 	CreateRefreshToken(ctx context.Context, token RefreshToken) error
 	GetRefreshTokenByHash(ctx context.Context, hash string) (RefreshToken, error)
@@ -37,7 +39,21 @@ type Repository interface {
 	ConsumePhoneOTP(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
-// RateLimiter counts attempts per key. Implementations decide the window and the limit.
+// RateRule is how many attempts one key may spend in one fixed window. The domain owns the rules;
+// the limiter only counts.
+type RateRule struct {
+	Limit  int
+	Window time.Duration
+}
+
+// RateDecision reports whether an attempt is within its rule and, when it is not, how long the
+// caller must wait until the window resets.
+type RateDecision struct {
+	Allowed    bool
+	RetryAfter time.Duration
+}
+
+// RateLimiter counts attempts per key under the given rule.
 type RateLimiter interface {
-	Allow(ctx context.Context, key string) (bool, error)
+	Allow(ctx context.Context, key string, rule RateRule) (RateDecision, error)
 }

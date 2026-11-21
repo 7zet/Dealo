@@ -62,6 +62,16 @@ func (f *fakeRepo) Report(context.Context, uuid.UUID, uuid.UUID, string) error {
 	return nil
 }
 
+func (f *fakeRepo) ListByUser(_ context.Context, userID uuid.UUID) ([]MyReview, error) {
+	mine := []MyReview{}
+	for _, review := range f.reviews {
+		if review.UserID == userID {
+			mine = append(mine, MyReview{Review: review})
+		}
+	}
+	return mine, nil
+}
+
 const goodText = "The spa session was relaxing and the staff were friendly."
 
 func fixture(status string) (*fakeRepo, *Service, uuid.UUID) {

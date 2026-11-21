@@ -220,6 +220,49 @@ func (q *Queries) ListMerchantStaff(ctx context.Context, merchantID pgtype.UUID)
 	return items, nil
 }
 
+const listUserMemberships = `-- name: ListUserMemberships :many
+SELECT ra.merchant_id, ra.role, m.display_name AS merchant_name, m.slug AS merchant_slug, m.review_status
+FROM role_assignments ra
+JOIN merchants m ON m.id = ra.merchant_id AND m.deleted_at IS NULL
+WHERE ra.user_id = $1 AND ra.merchant_id IS NOT NULL
+ORDER BY ra.created_at, m.display_name
+`
+
+type ListUserMembershipsRow struct {
+	MerchantID   pgtype.UUID `json:"merchant_id"`
+	Role         AppRole     `json:"role"`
+	MerchantName string      `json:"merchant_name"`
+	MerchantSlug string      `json:"merchant_slug"`
+	ReviewStatus string      `json:"review_status"`
+}
+
+// Merchant workspaces of a user. Soft-deleted merchants are left out.
+func (q *Queries) ListUserMemberships(ctx context.Context, userID pgtype.UUID) ([]ListUserMembershipsRow, error) {
+	rows, err := q.db.Query(ctx, listUserMemberships, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserMembershipsRow{}
+	for rows.Next() {
+		var i ListUserMembershipsRow
+		if err := rows.Scan(
+			&i.MerchantID,
+			&i.Role,
+			&i.MerchantName,
+			&i.MerchantSlug,
+			&i.ReviewStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserRoles = `-- name: ListUserRoles :many
 SELECT id, user_id, role, merchant_id, created_at, updated_at FROM role_assignments WHERE user_id = $1 ORDER BY role
 `
@@ -323,7 +366,7 @@ func (q *Queries) TouchUserLastLogin(ctx context.Context, id pgtype.UUID) error 
 }
 
 const updateUserProfile = `-- name: UpdateUserProfile :one
-UPDATE users SET name = $2, phone = $3, locale = $4, currency = $5
+UPDATE users SET name = $2, locale = $3, currency = $4
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, email, name, phone, avatar_url, locale, currency, email_verified_at, status, last_login_at, deleted_at, created_at, updated_at
 `
@@ -331,7 +374,6 @@ RETURNING id, email, name, phone, avatar_url, locale, currency, email_verified_a
 type UpdateUserProfileParams struct {
 	ID       pgtype.UUID  `json:"id"`
 	Name     string       `json:"name"`
-	Phone    pgtype.Text  `json:"phone"`
 	Locale   LocaleCode   `json:"locale"`
 	Currency CurrencyCode `json:"currency"`
 }
@@ -340,7 +382,6 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	row := q.db.QueryRow(ctx, updateUserProfile,
 		arg.ID,
 		arg.Name,
-		arg.Phone,
 		arg.Locale,
 		arg.Currency,
 	)

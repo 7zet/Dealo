@@ -150,6 +150,11 @@ func (s *MediaService) Delete(ctx context.Context, merchantID, assetID uuid.UUID
 		return err
 	}
 	if !removed {
+		// Nothing was deleted: either the asset is not this merchant's (or is gone), or a deal uses it.
+		// Another business's asset must look missing, not "in use".
+		if _, err := s.repo.GetAsset(ctx, merchantID, assetID); err != nil {
+			return err
+		}
 		return ErrMediaInUse
 	}
 	return nil

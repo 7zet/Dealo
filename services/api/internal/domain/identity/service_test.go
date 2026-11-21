@@ -161,8 +161,8 @@ func TestDeleteAccountFreesEmailAndRevokesSessions(t *testing.T) {
 
 type failingLimiter struct{}
 
-func (failingLimiter) Allow(context.Context, string) (bool, error) {
-	return false, errors.New("redis down")
+func (failingLimiter) Allow(context.Context, string, identity.RateRule) (identity.RateDecision, error) {
+	return identity.RateDecision{}, errors.New("redis down")
 }
 
 func TestLimiterOutageFailsOpen(t *testing.T) {

@@ -31,22 +31,14 @@ func NewMerchantWorkspaceAPI(workspace *merchant.WorkspaceService, auth *AuthAPI
 	return &MerchantWorkspaceAPI{workspace: workspace, auth: auth, logger: logger}
 }
 
-// scope authenticates the caller and resolves their merchant. Cashiers are refused when mayEdit is set.
-func (a *MerchantWorkspaceAPI) scope(w http.ResponseWriter, r *http.Request, mayEdit bool) (uuid.UUID, bool) {
-	account, ok := a.auth.authenticate(w, r)
-	if !ok {
-		return uuid.Nil, false
-	}
-	merchantID, _, err := a.workspace.Authorize(r.Context(), account.ID, mayEdit)
-	if err != nil {
-		a.fail(w, r, err)
-		return uuid.Nil, false
-	}
-	return merchantID, true
+// scope resolves the caller's merchant after checking the permission the operation needs.
+func (a *MerchantWorkspaceAPI) scope(w http.ResponseWriter, r *http.Request, permission merchant.Permission) (uuid.UUID, bool) {
+	_, merchantID, ok := merchantScope(w, r, a.auth, a.workspace, a.logger, permission)
+	return merchantID, ok
 }
 
 func (a *MerchantWorkspaceAPI) GetMerchantBusiness(w http.ResponseWriter, r *http.Request) {
-	merchantID, ok := a.scope(w, r, false)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -59,7 +51,7 @@ func (a *MerchantWorkspaceAPI) GetMerchantBusiness(w http.ResponseWriter, r *htt
 }
 
 func (a *MerchantWorkspaceAPI) UpdateMerchantBusiness(w http.ResponseWriter, r *http.Request) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -89,7 +81,7 @@ func (a *MerchantWorkspaceAPI) UpdateMerchantBusiness(w http.ResponseWriter, r *
 }
 
 func (a *MerchantWorkspaceAPI) GetMerchantDashboard(w http.ResponseWriter, r *http.Request, _ gen.GetMerchantDashboardParams) {
-	merchantID, ok := a.scope(w, r, false)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceView)
 	if !ok {
 		return
 	}
@@ -102,6 +94,10 @@ func (a *MerchantWorkspaceAPI) GetMerchantDashboard(w http.ResponseWriter, r *ht
 	for _, point := range dashboard.SalesChart {
 		chart = append(chart, gen.ChartPoint{Date: openapi_types.Date{Time: point.Day}, Value: point.Value})
 	}
+	latest := make([]gen.Order, 0, len(dashboard.LatestOrders))
+	for _, row := range dashboard.LatestOrders {
+		latest = append(latest, mapMerchantOrder(row))
+	}
 	pending := make([]gen.DealSummary, 0, len(dashboard.PendingDeals))
 	for _, deal := range dashboard.PendingDeals {
 		pending = append(pending, mapDealSummary(deal))
@@ -112,13 +108,15 @@ func (a *MerchantWorkspaceAPI) GetMerchantDashboard(w http.ResponseWriter, r *ht
 		VouchersRedeemed: mapMetric(dashboard.VouchersRedeemed),
 		ActiveDeals:      mapMetric(dashboard.ActiveDeals),
 		SalesChart:       chart,
-		LatestOrders:     []gen.Order{},
+		LatestOrders:     latest,
 		PendingDeals:     pending,
 	})
 }
 
+// ListMerchantLocations lists the branches. It needs only redeem: the redemption screen picks the
+// branch where the voucher is used, so cashiers read the list too.
 func (a *MerchantWorkspaceAPI) ListMerchantLocations(w http.ResponseWriter, r *http.Request) {
-	merchantID, ok := a.scope(w, r, false)
+	merchantID, ok := a.scope(w, r, merchant.PermRedeem)
 	if !ok {
 		return
 	}
@@ -131,7 +129,7 @@ func (a *MerchantWorkspaceAPI) ListMerchantLocations(w http.ResponseWriter, r *h
 }
 
 func (a *MerchantWorkspaceAPI) CreateMerchantLocation(w http.ResponseWriter, r *http.Request) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -148,7 +146,7 @@ func (a *MerchantWorkspaceAPI) CreateMerchantLocation(w http.ResponseWriter, r *
 }
 
 func (a *MerchantWorkspaceAPI) UpdateMerchantLocation(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -175,7 +173,7 @@ func (a *MerchantWorkspaceAPI) UpdateMerchantLocation(w http.ResponseWriter, r *
 }
 
 func (a *MerchantWorkspaceAPI) DeleteMerchantLocation(w http.ResponseWriter, r *http.Request, id gen.Id) {
-	merchantID, ok := a.scope(w, r, true)
+	merchantID, ok := a.scope(w, r, merchant.PermWorkspaceEdit)
 	if !ok {
 		return
 	}
@@ -246,7 +244,12 @@ func mapBusiness(business merchant.Business) gen.Merchant {
 }
 
 func mapMetric(metric merchant.Metric) gen.Metric {
-	return gen.Metric{Value: metric.Value, ChangePercent: float32(metric.ChangePercent)}
+	out := gen.Metric{Value: metric.Value, ChangePercent: float32(metric.ChangePercent)}
+	if metric.Compared {
+		previous := metric.Previous
+		out.PreviousValue = &previous
+	}
+	return out
 }
 
 func mapWorkspaceLocation(location merchant.Location) gen.MerchantLocation {

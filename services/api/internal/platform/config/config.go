@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
@@ -64,9 +65,13 @@ type Config struct {
 	SMTP SMTPConfig
 	// Commerce configures vouchers and payment providers.
 	Commerce CommerceConfig
-	// TrustProxyHeaders makes rate limiting and audit use X-Forwarded-For or X-Real-IP. Enable only
-	// behind a proxy that overwrites those headers.
+	// TrustProxyHeaders adds the private networks to TrustedProxies, for deployments where the web
+	// server or load balancer reaches the API over a private network.
 	TrustProxyHeaders bool
+	// TrustedProxies are the peers whose X-Forwarded-For and X-Real-IP headers name the real client.
+	// Requests from any other peer are keyed by their own address. The default trusts only loopback,
+	// which is the Next.js server forwarding sign-in requests on the same host.
+	TrustedProxies []netip.Prefix
 }
 
 // AuthConfig holds identity settings.
@@ -169,6 +174,10 @@ func load(lookup lookupEnv) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	trustedProxies, err := proxyPrefixes(lookup, trustProxy)
+	if err != nil {
+		return Config{}, err
+	}
 
 	mediaDir := optionalString(lookup, "MEDIA_LOCAL_DIR")
 	if mediaDir == "" {
@@ -203,6 +212,7 @@ func load(lookup lookupEnv) (Config, error) {
 		SMTP:                smtpConfig,
 		Commerce:            commerceConfig,
 		TrustProxyHeaders:   trustProxy,
+		TrustedProxies:      trustedProxies,
 		HTTP: HTTPConfig{
 			Address:           address,
 			ReadHeaderTimeout: readHeaderTimeout,
@@ -212,6 +222,43 @@ func load(lookup lookupEnv) (Config, error) {
 		},
 		ShutdownTimeout: shutdownTimeout,
 	}, nil
+}
+
+// Proxy networks. Loopback is always trusted: only a process on the same host can connect from it.
+var (
+	loopbackProxies = []string{"127.0.0.0/8", "::1/128"}
+	privateProxies  = []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
+)
+
+// proxyPrefixes parses TRUSTED_PROXIES (comma-separated addresses or CIDR prefixes) on top of the
+// loopback default. TRUST_PROXY_HEADERS=true also trusts the private networks.
+func proxyPrefixes(lookup lookupEnv, trustPrivate bool) ([]netip.Prefix, error) {
+	values := append([]string(nil), loopbackProxies...)
+	if trustPrivate {
+		values = append(values, privateProxies...)
+	}
+	for _, item := range strings.Split(optionalString(lookup, "TRUSTED_PROXIES"), ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			values = append(values, item)
+		}
+	}
+	prefixes := make([]netip.Prefix, 0, len(values))
+	for _, value := range values {
+		if !strings.Contains(value, "/") {
+			addr, err := netip.ParseAddr(value)
+			if err != nil {
+				return nil, fmt.Errorf("TRUSTED_PROXIES: invalid address %q", value)
+			}
+			prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+			continue
+		}
+		prefix, err := netip.ParsePrefix(value)
+		if err != nil {
+			return nil, fmt.Errorf("TRUSTED_PROXIES: invalid prefix %q", value)
+		}
+		prefixes = append(prefixes, prefix.Masked())
+	}
+	return prefixes, nil
 }
 
 // optionalString returns the trimmed value of an optional variable, or an empty string.

@@ -139,11 +139,17 @@ func (r *RedemptionRepository) AttemptStats(ctx context.Context, staffID uuid.UU
 		StaffUserID: toPgUUID(staffID),
 		MinuteSince: pgtype.Timestamptz{Time: minuteSince, Valid: true},
 		BlockSince:  pgtype.Timestamptz{Time: blockSince, Valid: true},
+		// The newest failure that, with the ones after it, reaches the limit; the block lifts a window after it.
+		BlockRank: redemption.FailedLookupLimit - 1,
 	})
 	if err != nil {
 		return redemption.AttemptCounts{}, fmt.Errorf("attempt stats: %w", err)
 	}
-	return redemption.AttemptCounts{LastMinute: int(row.LastMinute), FailedRecent: int(row.FailedRecent)}, nil
+	counts := redemption.AttemptCounts{LastMinute: int(row.LastMinute), FailedRecent: int(row.FailedRecent)}
+	if row.BlockStartedAt.Valid {
+		counts.BlockStartedAt = row.BlockStartedAt.Time
+	}
+	return counts, nil
 }
 
 // RecordAttempt stores one scanner lookup and whether it failed.

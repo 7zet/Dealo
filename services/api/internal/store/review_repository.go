@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/grupon/grupon/services/api/internal/domain/catalog"
 	"github.com/grupon/grupon/services/api/internal/domain/reviews"
 	sqlc "github.com/grupon/grupon/services/api/internal/store/sqlc"
 )
@@ -96,6 +97,48 @@ func (r *ReviewRepository) Find(ctx context.Context, reviewID uuid.UUID) (review
 		Status:     string(row.Status),
 		CreatedAt:  row.CreatedAt.Time,
 	}, nil
+}
+
+// ListByUser returns the user's reviews that are not deleted, in any status, newest first, with the
+// deal slug and title, the merchant name and the merchant reply.
+func (r *ReviewRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]reviews.MyReview, error) {
+	rows, err := sqlc.New(r.pool).ListUserReviews(ctx, toPgUUID(userID))
+	if err != nil {
+		return nil, fmt.Errorf("list user reviews: %w", err)
+	}
+	mine := make([]reviews.MyReview, 0, len(rows))
+	for _, row := range rows {
+		title, err := catalog.ParseText(row.DealTitle)
+		if err != nil {
+			return nil, err
+		}
+		review := reviews.MyReview{
+			Review: reviews.Review{
+				ID:         toUUID(row.ID),
+				DealID:     toUUID(row.DealID),
+				MerchantID: toUUID(row.MerchantID),
+				UserID:     toUUID(row.UserID),
+				VoucherID:  toUUID(row.VoucherID),
+				Rating:     int(row.Rating),
+				Text:       row.Text,
+				Locale:     string(row.Locale),
+				Status:     string(row.Status),
+				CreatedAt:  row.CreatedAt.Time,
+			},
+			DealSlug:     row.DealSlug,
+			DealTitle:    reviews.LocalizedText{Uz: title.Uz, Ru: title.Ru, En: title.En},
+			MerchantName: row.MerchantName,
+		}
+		if row.ReplyID.Valid {
+			review.Reply = &reviews.Reply{
+				ID:        toUUID(row.ReplyID),
+				Text:      row.ReplyText.String,
+				CreatedAt: row.ReplyCreatedAt.Time,
+			}
+		}
+		mine = append(mine, review)
+	}
+	return mine, nil
 }
 
 // Update changes rating, text and locale of a review the user wrote.

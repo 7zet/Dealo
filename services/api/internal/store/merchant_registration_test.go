@@ -63,9 +63,53 @@ func TestMerchantRegistrationCreatesBusinessLocationAndOwnerRole(t *testing.T) {
 		t.Fatalf("locations = %d, want 1", locations)
 	}
 
-	input.CityID = uuid.New()
+	// The registration is persisted with what the owner typed, and audited in the same transaction.
+	var legal, display, stir, account string
+	if err := fixture.pool.QueryRow(ctx,
+		`SELECT legal_name, display_name, stir, bank_account FROM merchants WHERE id = $1`, created.ID,
+	).Scan(&legal, &display, &stir, &account); err != nil {
+		t.Fatal(err)
+	}
+	if legal != input.LegalName || display != input.DisplayName || stir != input.STIR || account != input.BankAccount {
+		t.Fatalf("stored business = %q %q %q %q, want the submitted values", legal, display, stir, account)
+	}
+	var audits int
+	if err := fixture.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM audit_logs WHERE action = 'merchant.register' AND entity_id = $1 AND actor_user_id = $2
+		   AND NOT (after_data ? 'bank_account')`,
+		created.ID, ownerID).Scan(&audits); err != nil {
+		t.Fatal(err)
+	}
+	if audits != 1 {
+		t.Fatalf("registration audit rows = %d, want 1", audits)
+	}
+
+	// GET /me reads the workspace from the memberships: the new owner must see the draft business
+	// right away, or the web panel sends them back to the registration form.
+	memberships, err := store.NewIdentityRepository(fixture.pool).ListMemberships(ctx, ownerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(memberships) != 1 || memberships[0].MerchantID != created.ID ||
+		string(memberships[0].Role) != "merchant_owner" || memberships[0].ReviewStatus != "draft" {
+		t.Fatalf("memberships after registration = %+v, want one draft merchant_owner workspace", memberships)
+	}
+	if !merchant.Can(string(memberships[0].Role), merchant.PermBusinessManage) {
+		t.Fatal("a new owner must hold business.manage to upload documents and submit the business")
+	}
+
+	// One business per account: the owner cannot register a second one, and nothing is written.
 	input.STIR = "400000002"
-	if _, err := service.Register(ctx, ownerID, input); err != merchant.ErrCityNotFound {
+	if _, err := service.Register(ctx, ownerID, input); !errors.Is(err, merchant.ErrAlreadyInAnotherBusiness) {
+		t.Fatalf("second business err = %v, want ErrAlreadyInAnotherBusiness", err)
+	}
+	var stirTaken bool
+	if err := fixture.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM merchants WHERE stir = '400000002')`).Scan(&stirTaken); err != nil || stirTaken {
+		t.Fatalf("refused registration wrote a business: %v %v", stirTaken, err)
+	}
+
+	input.CityID = uuid.New()
+	if _, err := service.Register(ctx, newPhoneUser(t, fixture, ""), input); err != merchant.ErrCityNotFound {
 		t.Fatalf("unknown city err = %v, want ErrCityNotFound", err)
 	}
 }
@@ -195,11 +239,12 @@ func TestMerchantReviewMovesBusinessAndWritesAudit(t *testing.T) {
 	}
 	var audits int
 	if err := fixture.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM audit_logs WHERE entity_type = 'merchant' AND entity_id = $1`, created.ID).Scan(&audits); err != nil {
+		`SELECT COUNT(*) FROM audit_logs WHERE entity_type = 'merchant' AND entity_id = $1
+		   AND action <> 'merchant.register'`, created.ID).Scan(&audits); err != nil {
 		t.Fatal(err)
 	}
 	if audits != 2 {
-		t.Fatalf("audit rows = %d, want 2 (start and approve)", audits)
+		t.Fatalf("review audit rows = %d, want 2 (start and approve)", audits)
 	}
 }
 

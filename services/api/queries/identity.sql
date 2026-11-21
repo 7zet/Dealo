@@ -4,6 +4,14 @@ SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL;
 -- name: ListUserRoles :many
 SELECT * FROM role_assignments WHERE user_id = $1 ORDER BY role;
 
+-- name: ListUserMemberships :many
+-- Merchant workspaces of a user. Soft-deleted merchants are left out.
+SELECT ra.merchant_id, ra.role, m.display_name AS merchant_name, m.slug AS merchant_slug, m.review_status
+FROM role_assignments ra
+JOIN merchants m ON m.id = ra.merchant_id AND m.deleted_at IS NULL
+WHERE ra.user_id = sqlc.arg(user_id) AND ra.merchant_id IS NOT NULL
+ORDER BY ra.created_at, m.display_name;
+
 -- name: RevokeRefreshFamily :exec
 UPDATE refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL;
 
@@ -22,7 +30,7 @@ RETURNING *;
 UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1;
 
 -- name: UpdateUserProfile :one
-UPDATE users SET name = $2, phone = $3, locale = $4, currency = $5
+UPDATE users SET name = $2, locale = $3, currency = $4
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
 

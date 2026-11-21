@@ -327,7 +327,7 @@ func (q *Queries) GetUserContact(ctx context.Context, userID pgtype.UUID) (GetUs
 const getVoucherForUser = `-- name: GetVoucherForUser :one
 SELECT v.id, v.order_item_id, v.user_id, v.deal_id, v.deal_option_id, v.merchant_id, v.code, v.qr_token,
        v.status::text AS status, v.valid_from, v.valid_until, v.redeemed_at, v.redeemed_location_id,
-       oi.terms_snapshot
+       oi.terms_snapshot, oi.title_snapshot, oi.unit_price_snapshot
 FROM vouchers v JOIN order_items oi ON oi.id = v.order_item_id
 WHERE v.id = $1 AND v.user_id = $2
 `
@@ -352,6 +352,8 @@ type GetVoucherForUserRow struct {
 	RedeemedAt         pgtype.Timestamptz `json:"redeemed_at"`
 	RedeemedLocationID pgtype.UUID        `json:"redeemed_location_id"`
 	TermsSnapshot      []byte             `json:"terms_snapshot"`
+	TitleSnapshot      []byte             `json:"title_snapshot"`
+	UnitPriceSnapshot  int64              `json:"unit_price_snapshot"`
 }
 
 func (q *Queries) GetVoucherForUser(ctx context.Context, arg GetVoucherForUserParams) (GetVoucherForUserRow, error) {
@@ -372,6 +374,8 @@ func (q *Queries) GetVoucherForUser(ctx context.Context, arg GetVoucherForUserPa
 		&i.RedeemedAt,
 		&i.RedeemedLocationID,
 		&i.TermsSnapshot,
+		&i.TitleSnapshot,
+		&i.UnitPriceSnapshot,
 	)
 	return i, err
 }
@@ -719,7 +723,7 @@ func (q *Queries) ListUnreleasedReservations(ctx context.Context, orderID pgtype
 const listVouchersForUser = `-- name: ListVouchersForUser :many
 SELECT v.id, v.order_item_id, v.user_id, v.deal_id, v.deal_option_id, v.merchant_id, v.code, v.qr_token,
        v.status::text AS status, v.valid_from, v.valid_until, v.redeemed_at, v.redeemed_location_id,
-       oi.terms_snapshot
+       oi.terms_snapshot, oi.title_snapshot, oi.unit_price_snapshot
 FROM vouchers v JOIN order_items oi ON oi.id = v.order_item_id
 WHERE v.user_id = $1
   AND ($2::text IS NULL OR v.status::text = $2::text)
@@ -749,6 +753,8 @@ type ListVouchersForUserRow struct {
 	RedeemedAt         pgtype.Timestamptz `json:"redeemed_at"`
 	RedeemedLocationID pgtype.UUID        `json:"redeemed_location_id"`
 	TermsSnapshot      []byte             `json:"terms_snapshot"`
+	TitleSnapshot      []byte             `json:"title_snapshot"`
+	UnitPriceSnapshot  int64              `json:"unit_price_snapshot"`
 }
 
 func (q *Queries) ListVouchersForUser(ctx context.Context, arg ListVouchersForUserParams) ([]ListVouchersForUserRow, error) {
@@ -780,6 +786,8 @@ func (q *Queries) ListVouchersForUser(ctx context.Context, arg ListVouchersForUs
 			&i.RedeemedAt,
 			&i.RedeemedLocationID,
 			&i.TermsSnapshot,
+			&i.TitleSnapshot,
+			&i.UnitPriceSnapshot,
 		); err != nil {
 			return nil, err
 		}

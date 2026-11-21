@@ -57,6 +57,30 @@ type Review struct {
 	CreatedAt  time.Time
 }
 
+// LocalizedText is a value in every supported locale.
+type LocalizedText struct {
+	Uz string
+	Ru string
+	En string
+}
+
+// Reply is the merchant's public answer to a review.
+type Reply struct {
+	ID        uuid.UUID
+	Text      string
+	CreatedAt time.Time
+}
+
+// MyReview is a review shown to its author, with the deal and merchant it is about and the merchant
+// reply when there is one.
+type MyReview struct {
+	Review
+	DealSlug     string
+	DealTitle    LocalizedText
+	MerchantName string
+	Reply        *Reply
+}
+
 // VoucherOwner is the part of a voucher that decides whether a review may be written.
 type VoucherOwner struct {
 	UserID     uuid.UUID
@@ -73,6 +97,8 @@ type Repository interface {
 	Update(ctx context.Context, reviewID, userID uuid.UUID, in Input) (bool, error)
 	SoftDelete(ctx context.Context, reviewID, userID uuid.UUID) (bool, error)
 	Report(ctx context.Context, reviewID, reporterID uuid.UUID, reason string) error
+	// ListByUser returns the user's reviews that are not deleted, in any status, newest first.
+	ListByUser(ctx context.Context, userID uuid.UUID) ([]MyReview, error)
 }
 
 // Service applies the review rules.
@@ -99,6 +125,12 @@ func (s *Service) Create(ctx context.Context, userID, voucherID uuid.UUID, in In
 		return Review{}, ErrNotRedeemed
 	}
 	return s.repo.Insert(ctx, owner, voucherID, userID, in)
+}
+
+// ListMine returns every review the user wrote and has not deleted, including hidden and pending
+// ones, newest first.
+func (s *Service) ListMine(ctx context.Context, userID uuid.UUID) ([]MyReview, error) {
+	return s.repo.ListByUser(ctx, userID)
 }
 
 // Update changes the text or rating of a review the user wrote.
