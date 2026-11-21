@@ -28,7 +28,13 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                 href={`/account/orders/${order.id}`}
                 className="grid gap-1 rounded-card border border-border bg-surface p-4 hover:border-brand"
               >
-                <span className="font-mono font-semibold text-ink">{order.number}</span>
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono font-semibold text-ink">{order.number}</span>
+                  <span className="rounded-round-ui bg-page px-3 py-0.5 text-small font-semibold text-ink-muted">
+                    <span className="sr-only">{t('status')}: </span>
+                    {t(`orderStatus.${order.status}`)}
+                  </span>
+                </span>
                 <span className="text-sm text-ink-muted">
                   {format.dateTime(new Date(order.created_at), { dateStyle: 'medium' })}
                 </span>

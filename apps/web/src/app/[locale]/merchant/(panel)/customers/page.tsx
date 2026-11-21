@@ -1,57 +1,61 @@
 import type { components } from '@grupon/api-client';
+import type { Locale } from '@grupon/config';
 import { formatMoney } from '@grupon/ui';
-import type { Currency, Locale } from '@grupon/config';
+import { UsersRound } from 'lucide-react';
 import { getFormatter, getTranslations } from 'next-intl/server';
 
+import { EmptyState, PageHeader, TableCard, Td, Th } from '@/components/merchant-ui';
 import { accountGet, loadForVisitor } from '@/lib/account-api';
+import { requirePanelPermission } from '@/lib/merchant-session';
 
 type CustomerPage = components['schemas']['CustomerPage'];
 
 /** Buyers of this business with their order counts and totals. Names are shortened to "Alisher U." by the API. */
 export default async function CustomersPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const t = await getTranslations('MerchantPanel');
-  const format = await getFormatter();
-  const list = await loadForVisitor(locale, `/${locale}/merchant/customers`, () =>
+  await requirePanelPermission('workspace.view', '/merchant/customers');
+  const [t, ui, format] = await Promise.all([
+    getTranslations('MerchantPanel'),
+    getTranslations('MerchantUI'),
+    getFormatter(),
+  ]);
+  const list = await loadForVisitor(locale, '/merchant/customers', () =>
     accountGet<CustomerPage>('/merchant/customers'),
   );
-  const currency: Currency = 'UZS';
 
   return (
-    <div className="grid gap-8">
-      <h1 className="text-title font-bold">{t('customersTitle')}</h1>
+    <>
+      <PageHeader title={t('customersTitle')} description={ui('customersSubtitle')} />
       {list.items.length === 0 ? (
-        <p className="text-ink-muted">{t('customersEmpty')}</p>
+        <EmptyState icon={UsersRound} title={t('customersEmpty')} text={ui('customersEmptyHint')} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="text-ink-muted">
-              <tr>
-                <th className="py-2 pr-4 font-semibold">{t('colCustomer')}</th>
-                <th className="py-2 pr-4 font-semibold">{t('colOrders')}</th>
-                <th className="py-2 pr-4 font-semibold">{t('colVouchers')}</th>
-                <th className="py-2 pr-4 font-semibold">{t('colSpent')}</th>
-                <th className="py-2 pr-4 font-semibold">{t('colLast')}</th>
+        <TableCard minWidth={640}>
+          <thead>
+            <tr>
+              <Th>{t('colCustomer')}</Th>
+              <Th align="right">{t('colOrders')}</Th>
+              <Th align="right">{t('colVouchers')}</Th>
+              <Th align="right">{t('colSpent')}</Th>
+              <Th>{t('colLast')}</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.items.map((customer) => (
+              <tr key={customer.user_id}>
+                <Td className="font-medium">{customer.name}</Td>
+                <Td align="right">{format.number(customer.orders_count)}</Td>
+                <Td align="right">{format.number(customer.vouchers_count)}</Td>
+                <Td align="right" className="font-semibold">
+                  {formatMoney(customer.total_spent.amount, locale as Locale, 'UZS')}
+                </Td>
+                <Td className="whitespace-nowrap text-ink-muted">
+                  {format.dateTime(new Date(customer.last_order_at), { dateStyle: 'medium' })}
+                </Td>
               </tr>
-            </thead>
-            <tbody>
-              {list.items.map((customer) => (
-                <tr key={customer.user_id} className="border-t border-border">
-                  <td className="py-2 pr-4">{customer.name}</td>
-                  <td className="py-2 pr-4">{customer.orders_count}</td>
-                  <td className="py-2 pr-4">{customer.vouchers_count}</td>
-                  <td className="py-2 pr-4">
-                    {formatMoney(customer.total_spent.amount, locale as Locale, currency)}
-                  </td>
-                  <td className="py-2 pr-4">
-                    {format.dateTime(new Date(customer.last_order_at), { dateStyle: 'medium' })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </TableCard>
       )}
-    </div>
+    </>
   );
 }

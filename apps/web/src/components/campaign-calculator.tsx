@@ -1,6 +1,6 @@
 'use client';
 
-import { formatMoney } from '@grupon/ui';
+import { discountPercent, formatMoney, tiyinFromSom } from '@grupon/ui';
 import type { Currency, Locale } from '@grupon/config';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -8,8 +8,8 @@ import { useState } from 'react';
 const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
 
 /**
- * Shows what a merchant earns from a deal before it is created. Pure arithmetic in so'm; nothing is sent to the API.
- * Money is shown through formatMoney, which expects tiyin, so every so'm figure is multiplied by 100 first.
+ * Shows what a merchant earns from a deal before it is created; nothing is sent to the API. Inputs are
+ * typed in so'm, converted to integer tiyin once, and shown through formatMoney.
  */
 export function CampaignCalculator({ locale }: { locale: Locale }) {
   const t = useTranslations('MerchantPanel');
@@ -26,11 +26,15 @@ export function CampaignCalculator({ locale }: { locale: Locale }) {
     capacity > 0 &&
     commission >= 0 &&
     commission < 100;
-  const discount = valid ? Math.round((1 - deal / original) * 100) : 0;
-  const perVoucher = valid ? deal * (1 - commission / 100) : 0;
+  // Integer arithmetic in tiyin: the commission is converted to basis points (15% = 1500 bps) and
+  // the merchant's share is rounded down once per voucher, so no float ever touches money.
+  const commissionBps = Math.round(commission * 100);
+  const dealTiyin = tiyinFromSom(deal);
+  const discount = valid ? discountPercent(original, deal) : 0;
+  const perVoucher = valid ? Math.floor((dealTiyin * (10000 - commissionBps)) / 10000) : 0;
   const totalReceive = perVoucher * capacity;
-  const customersPay = deal * capacity;
-  const show = (som: number) => formatMoney(Math.round(som * 100), locale, currency);
+  const customersPay = dealTiyin * capacity;
+  const show = (tiyin: number) => formatMoney(tiyin, locale, currency);
 
   return (
     <div className="grid gap-6">
@@ -57,7 +61,7 @@ export function CampaignCalculator({ locale }: { locale: Locale }) {
         />
       </div>
       {valid && (
-        <dl className="grid max-w-2xl gap-3 rounded-card border border-border p-5 text-sm sm:grid-cols-2">
+        <dl className="grid max-w-2xl gap-3 rounded-card-ui border border-border bg-page p-5 text-sm sm:grid-cols-2">
           <Row label={t('calcDiscount')} value={`${discount}%`} />
           <Row label={t('calcPerVoucher')} value={show(perVoucher)} />
           <Row label={t('calcCustomerPays')} value={show(customersPay)} />

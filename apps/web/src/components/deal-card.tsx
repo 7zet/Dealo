@@ -53,7 +53,7 @@ export function DealCard({
           <Image
             className="object-cover transition duration-500 group-hover:scale-[1.05] motion-reduce:transition-none"
             src={image.url}
-            alt={localized(image.alt, locale)}
+            alt={localized(deal.title, locale)}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1600px) 20vw, 16vw"
           />
@@ -75,13 +75,22 @@ export function DealCard({
           <p className="mt-1.5 line-clamp-2 min-h-12 font-bold leading-6 text-ink">
             {localized(deal.title, locale)}
           </p>
-          <p className="mt-2 flex items-center gap-1 text-small text-ink-muted">
-            <Star className="size-4 fill-rating text-rating" aria-hidden />
-            <span className="font-semibold text-ink">{deal.rating_avg.toFixed(1)}</span>
-            {deal.sold_count >= 50 && (
-              <span className="truncate"> · {t('sold', { count: deal.sold_count })}</span>
-            )}
-          </p>
+          {(deal.rating_count > 0 || deal.sold_count >= 50) && (
+            <p className="mt-2 flex items-center gap-1 text-small text-ink-muted">
+              {deal.rating_count > 0 && (
+                <>
+                  <Star className="size-4 fill-rating text-rating" aria-hidden />
+                  <span className="font-semibold text-ink">{deal.rating_avg.toFixed(1)}</span>
+                </>
+              )}
+              {deal.sold_count >= 50 && (
+                <span className="truncate">
+                  {deal.rating_count > 0 && ' · '}
+                  {t('sold', { count: deal.sold_count })}
+                </span>
+              )}
+            </p>
+          )}
           <div className="mt-auto flex items-end justify-between gap-2 pt-4">
             <div>
               <div className="tabular-nums text-lead font-extrabold text-ink">

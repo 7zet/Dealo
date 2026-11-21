@@ -4,6 +4,7 @@ import { Check, Clock3, MapPin, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import { Fragment } from 'react';
 import { DealGallery } from '@/components/deal-gallery';
 import { DealGrid } from '@/components/deal-grid';
 import { MapView } from '@/components/map-view';
@@ -11,6 +12,9 @@ import { PurchasePanel } from '@/components/purchase-panel';
 import { SectionHeading } from '@/components/section-heading';
 import { StickyBuy } from '@/components/sticky-buy';
 import { Link } from '@/i18n/navigation';
+import { categoryLabel } from '@/lib/catalog-labels';
+import { formatTashkentDateTime } from '@/lib/dates';
+import { groupOpeningHours } from '@/lib/opening-hours';
 import { getCurrency } from '@/lib/preferences';
 import { ReviewReportButton } from '@/components/review-report-button';
 
@@ -32,7 +36,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph: { title, description, images: deal.media[0] ? [deal.media[0].url] : [] },
     };
   } catch {
-    return {};
+    const t = await getTranslations({ locale, namespace: 'ErrorPage' });
+    return { title: t('notFoundTitle'), robots: { index: false } };
   }
 }
 
@@ -45,12 +50,20 @@ export default async function DealPage({ params }: Props) {
   } catch {
     notFound();
   }
-  const [reviews, related, currency, t] = await Promise.all([
+  const [reviews, related, currency, t, catalog] = await Promise.all([
     publicApi.reviews(slug),
     publicApi.related(slug, deal.locations[0]?.city.slug),
     getCurrency(),
     getTranslations('Deal'),
+    getTranslations('Catalog'),
   ]);
+  const hasReviews = deal.rating_count > 0;
+  // Vouchers are valid either for N days after purchase or until a fixed date (Tashkent time).
+  const validity = deal.voucher_valid_days
+    ? t('validityDays', { count: deal.voucher_valid_days })
+    : deal.voucher_valid_until
+      ? formatTashkentDateTime(deal.voucher_valid_until).slice(0, 10)
+      : null;
   const option = deal.options[0]!;
   const structured = {
     '@context': 'https://schema.org',
@@ -66,11 +79,14 @@ export default async function DealPage({ params }: Props) {
       availability:
         deal.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: deal.rating_avg,
-      reviewCount: deal.rating_count,
-    },
+    // Search engines reject an AggregateRating with no reviews, so it is only sent when one exists.
+    ...(hasReviews && {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: deal.rating_avg,
+        reviewCount: deal.rating_count,
+      },
+    }),
   };
   return (
     <>
@@ -81,13 +97,13 @@ export default async function DealPage({ params }: Props) {
       <div className="mx-auto max-w-layout px-4 py-3 sm:px-6 lg:px-8 lg:py-6">
         <nav className="mb-3 text-small text-ink-muted lg:mb-4">
           <Link href={`/${deal.locations[0]?.city.slug ?? 'tashkent'}/${deal.category.slug}`}>
-            {localized(deal.category.name, locale)}
+            {categoryLabel(catalog, deal.category, locale)}
           </Link>{' '}
           · <span>{deal.merchant.display_name}</span>
         </nav>
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
           <div>
-            <DealGallery media={deal.media} locale={locale} />
+            <DealGallery media={deal.media} title={localized(deal.title, locale)} />
             <div className="mt-4 lg:mt-6">
               <Link
                 className="text-small font-semibold text-brand"
@@ -102,8 +118,10 @@ export default async function DealPage({ params }: Props) {
                 className="mt-2 inline-flex items-center gap-1 text-small text-ink-muted"
                 href="#reviews"
               >
-                <Star className="size-4 fill-rating text-rating" />
-                {deal.rating_avg.toFixed(1)} ({deal.rating_count})
+                <Star className="size-4 fill-rating text-rating" aria-hidden />
+                {hasReviews
+                  ? `${deal.rating_avg.toFixed(1)} (${deal.rating_count})`
+                  : t('noReviews')}
               </a>
             </div>
             <div className="mt-4 lg:hidden" id="purchase-panel">
@@ -138,10 +156,12 @@ export default async function DealPage({ params }: Props) {
               <section className="rounded-card-ui border bg-surface p-5">
                 <h2 className="text-subtitle font-bold">{t('terms')}</h2>
                 <p className="mt-3 text-ink-muted">{localized(deal.terms, locale)}</p>
-                <p className="mt-3 flex items-center gap-2 text-small">
-                  <Clock3 className="size-4 text-brand" />
-                  {t('validity')}: {deal.voucher_valid_days}
-                </p>
+                {validity && (
+                  <p className="mt-3 flex items-center gap-2 text-small">
+                    <Clock3 className="size-4 text-brand" />
+                    {t('validity')}: {validity}
+                  </p>
+                )}
                 {deal.booking_required && <p className="mt-2 text-small">{t('booking')}</p>}
               </section>
               <section>
@@ -152,7 +172,18 @@ export default async function DealPage({ params }: Props) {
                       <MapPin className="mb-2 text-brand" />
                       <strong>{localized(location.city.name, locale)}</strong>
                       <p className="mt-1 text-small text-ink-muted">{location.address}</p>
-                      <p className="mt-2 text-small">{String(location.opening_hours.mon)}</p>
+                      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-small">
+                        {groupOpeningHours(location.opening_hours).map((row) => (
+                          <Fragment key={row.from}>
+                            <dt className="text-ink-muted">
+                              {row.from === row.to
+                                ? t(`days.${row.from}`)
+                                : `${t(`days.${row.from}`)}–${t(`days.${row.to}`)}`}
+                            </dt>
+                            <dd className="tabular-nums">{row.hours ?? t('closed')}</dd>
+                          </Fragment>
+                        ))}
+                      </dl>
                     </div>
                   ))}
                 </div>
@@ -160,9 +191,16 @@ export default async function DealPage({ params }: Props) {
               </section>
               <section id="reviews">
                 <h2 className="text-subtitle font-bold">
-                  {t('reviews')} · {deal.rating_avg.toFixed(1)}
+                  {t('reviews')}
+                  {hasReviews && ` · ${deal.rating_avg.toFixed(1)}`}
                 </h2>
-                <div className="mt-5 grid gap-4">
+                {reviews.items.length === 0 && (
+                  <div className="mt-5 rounded-card-ui border bg-surface p-5">
+                    <p className="font-semibold">{t('reviewsEmptyTitle')}</p>
+                    <p className="mt-1 text-small text-ink-muted">{t('reviewsEmptyText')}</p>
+                  </div>
+                )}
+                <div className="mt-5 grid gap-4 empty:hidden">
                   {reviews.items.slice(0, 6).map((review) => (
                     <article className="rounded-card-ui border bg-surface p-5" key={review.id}>
                       <div className="flex justify-between">

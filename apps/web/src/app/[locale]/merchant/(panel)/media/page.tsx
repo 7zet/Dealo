@@ -1,18 +1,21 @@
 import { getTranslations } from 'next-intl/server';
 
 import { MerchantMediaLibrary, type MediaAsset } from '@/components/merchant-media-library';
+import { PageHeader } from '@/components/merchant-ui';
 import { accountGet, loadForVisitor } from '@/lib/account-api';
+import { requirePanelPermission } from '@/lib/merchant-session';
 
 export default async function MediaPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const t = await getTranslations('Deals');
-  const list = await loadForVisitor(locale, `/${locale}/merchant/media`, () =>
+  const access = await requirePanelPermission('workspace.view', '/merchant/media');
+  const [t, ui] = await Promise.all([getTranslations('Deals'), getTranslations('MerchantUI')]);
+  const list = await loadForVisitor(locale, '/merchant/media', () =>
     accountGet<{ items: MediaAsset[] }>('/merchant/media'),
   );
   return (
-    <div className="grid gap-8">
-      <h1 className="text-title font-bold">{t('mediaTitle')}</h1>
-      <MerchantMediaLibrary assets={list.items} />
-    </div>
+    <>
+      <PageHeader title={t('mediaTitle')} description={ui('mediaSubtitle')} />
+      <MerchantMediaLibrary assets={list.items} canEdit={access.can('workspace.edit')} />
+    </>
   );
 }

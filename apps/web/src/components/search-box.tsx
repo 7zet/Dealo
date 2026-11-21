@@ -3,8 +3,9 @@ import { publicApi } from '@grupon/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useDeferredValue, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useDeferredValue, useState, type ComponentProps } from 'react';
+import { Link, usePathname } from '@/i18n/navigation';
 
 /**
  * Search with live suggestions. `tone="dark"` is for the black header and hero; `submitLabel` adds the
@@ -16,16 +17,24 @@ export function SearchBox({
   size = 'md',
   submitLabel,
   className = '',
+  currentQuery = '',
 }: {
   compact?: boolean;
   tone?: 'light' | 'dark';
   size?: 'md' | 'lg';
   submitLabel?: string;
   className?: string;
+  /** The query of the results on screen; the field shows it and follows it when it changes. */
+  currentQuery?: string;
 }) {
   const t = useTranslations('Navigation');
   const locale = useLocale();
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(currentQuery);
+  const [shownQuery, setShownQuery] = useState(currentQuery);
+  if (shownQuery !== currentQuery) {
+    setShownQuery(currentQuery);
+    setValue(currentQuery);
+  }
   const query = useDeferredValue(value.trim());
   const result = useQuery({
     queryKey: ['suggestions', query],
@@ -77,5 +86,21 @@ export function SearchBox({
         </div>
       ) : null}
     </form>
+  );
+}
+
+function SearchBoxWithQuery(props: ComponentProps<typeof SearchBox>) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = pathname === '/search' ? (searchParams.get('q') ?? '') : '';
+  return <SearchBox {...props} currentQuery={currentQuery} />;
+}
+
+/** The header search: on the search page it shows the query being searched. */
+export function CurrentSearchBox(props: ComponentProps<typeof SearchBox>) {
+  return (
+    <Suspense fallback={<SearchBox {...props} />}>
+      <SearchBoxWithQuery {...props} />
+    </Suspense>
   );
 }

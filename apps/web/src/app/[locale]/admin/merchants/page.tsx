@@ -1,14 +1,12 @@
 import type { components } from '@grupon/api-client';
 import { getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 
 import { MerchantReviewActions } from '@/components/merchant-review-actions';
-import { accountGet, accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { accountGet } from '@/lib/account-api';
+import { formatTashkentDateTime } from '@/lib/dates';
+import { requireAdminArea } from '@/lib/admin-session';
 
-type User = components['schemas']['User'];
 type ReviewList = components['schemas']['MerchantReviewList'];
-
-const REVIEWERS = ['superadmin', 'admin', 'moderator'];
 
 /** Queue of businesses waiting for review: identity and tax data, uploaded documents, decisions. */
 export default async function MerchantReviewQueuePage({
@@ -18,10 +16,7 @@ export default async function MerchantReviewQueuePage({
 }) {
   const { locale } = await params;
   const t = await getTranslations('AdminMerchants');
-  const user = await loadForVisitor(locale, `/${locale}/admin/merchants`, () =>
-    accountGetOrNull<User>('/me'),
-  );
-  if (!user?.roles.some((role) => REVIEWERS.includes(role))) notFound();
+  await requireAdminArea('merchants', locale);
   const queue = await accountGet<ReviewList>('/admin/merchants');
 
   return (
@@ -48,8 +43,7 @@ export default async function MerchantReviewQueuePage({
                   MFO {item.bank_mfo} · {item.bank_account} · {item.responsible_name}
                 </p>
                 <p className="text-ink-muted">
-                  {t(`status.${item.review_status}`)} ·{' '}
-                  {new Date(item.submitted_at).toLocaleString(locale)}
+                  {t(`status.${item.review_status}`)} · {formatTashkentDateTime(item.submitted_at)}
                 </p>
                 <p className="flex flex-wrap gap-3">
                   {(['certificate', 'bank_letter', 'price_proof'] as const).map((kind) =>

@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { ACCESS_COOKIE, REFRESH_COOKIE, apiBaseUrl } from '@/lib/session-cookies';
+import { refreshSession } from '@/lib/session-refresh';
+
 /**
  * Backend-for-frontend proxy for signed-in browser code. The browser sends its session cookie to this
  * same-origin route; the route turns it into a bearer token for the Go API. Only the operations listed
@@ -10,6 +13,7 @@ const UUID = '[0-9a-f-]{36}';
 
 const ALLOWED: { method: string; pattern: RegExp }[] = [
   { method: 'GET', pattern: /^me$/ },
+  { method: 'PATCH', pattern: /^me$/ },
   { method: 'POST', pattern: /^orders$/ },
   { method: 'POST', pattern: /^merchants$/ },
   { method: 'POST', pattern: /^merchant\/submit$/ },
@@ -85,10 +89,6 @@ const BINARY_DOWNLOAD = new RegExp(
   `^admin\\/merchants\\/${UUID}\\/documents\\/(certificate|bank_letter|price_proof)$`,
 );
 
-function apiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1';
-}
-
 async function forward(request: Request, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const route = path.join('/');
@@ -99,29 +99,58 @@ async function forward(request: Request, context: { params: Promise<{ path: stri
     return NextResponse.json({ code: 'not_found' }, { status: 404 });
   }
 
-  const token = (await cookies()).get('access_token')?.value;
-  if (!token) {
-    return NextResponse.json({ code: 'unauthenticated' }, { status: 401 });
+  const jar = await cookies();
+  const refresh = jar.get(REFRESH_COOKIE)?.value;
+  let token = jar.get(ACCESS_COOKIE)?.value;
+  // The access cookie lives 15 minutes, but a counter screen stays open all day: when it has expired
+  // (or the API rejects it), rotate the session once and send the new cookies back with the answer.
+  let setCookies: string[] = [];
+  let refreshed = false;
+  async function renew(): Promise<boolean> {
+    if (!refresh || refreshed) return false;
+    refreshed = true;
+    const session = await refreshSession(refresh, request.headers.get('user-agent') ?? '');
+    setCookies = session.setCookies;
+    token = session.accessToken ?? undefined;
+    return Boolean(token);
   }
+  if (!token) await renew();
+  if (!token) return withCookies(unauthenticated(), setCookies);
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/json',
-  };
+  const headers: Record<string, string> = { Accept: 'application/json' };
   const binary = BINARY_UPLOAD.test(route);
   headers['Content-Type'] = binary
     ? (request.headers.get('content-type') ?? 'application/octet-stream')
     : 'application/json';
   const idempotencyKey = request.headers.get('idempotency-key');
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+  // Read once: a retry after a session renewal sends the same body again.
+  const body =
+    request.method === 'GET' ? null : binary ? await request.arrayBuffer() : await request.text();
 
-  const upstream = await fetch(`${apiBaseUrl()}/${route}`, {
-    method: request.method,
-    headers,
-    body:
-      request.method === 'GET' ? null : binary ? await request.arrayBuffer() : await request.text(),
-    cache: 'no-store',
-  });
+  const send = () =>
+    fetch(`${apiBaseUrl()}/${route}`, {
+      method: request.method,
+      headers: { ...headers, Authorization: `Bearer ${token}` },
+      body,
+      cache: 'no-store',
+    });
+  let upstream = await send();
+  // A 401 means the API did not act on the request, so it is safe to repeat it with a fresh token.
+  if (upstream.status === 401 && (await renew())) upstream = await send();
+  return withCookies(await relay(route, upstream), setCookies);
+}
+
+function unauthenticated(): NextResponse {
+  return NextResponse.json({ code: 'unauthenticated' }, { status: 401 });
+}
+
+function withCookies(response: NextResponse, setCookies: string[]): NextResponse {
+  for (const cookie of setCookies) response.headers.append('Set-Cookie', cookie);
+  return response;
+}
+
+async function relay(route: string, upstream: Response): Promise<NextResponse> {
   // A 204 response must not carry a body; the Response constructor rejects one.
   if (upstream.status === 204) return new NextResponse(null, { status: 204 });
   if (BINARY_DOWNLOAD.test(route) && upstream.ok) {
@@ -134,10 +163,13 @@ async function forward(request: Request, context: { params: Promise<{ path: stri
       },
     });
   }
-  return new NextResponse(await upstream.text(), {
-    status: upstream.status,
-    headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
+  const headers = new Headers({
+    'Content-Type': upstream.headers.get('content-type') ?? 'application/json',
   });
+  // Rate-limited answers (the scanner block, for one) tell the client how long to wait.
+  const retryAfter = upstream.headers.get('retry-after');
+  if (retryAfter) headers.set('Retry-After', retryAfter);
+  return new NextResponse(await upstream.text(), { status: upstream.status, headers });
 }
 
 export const GET = forward;

@@ -2,7 +2,10 @@
 
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
+import { CheckCircle2, Circle } from 'lucide-react';
 import { useState } from 'react';
+
+import { primaryButtonClass } from './merchant-ui';
 
 type DocumentKind = 'certificate' | 'bank_letter' | 'price_proof';
 type Uploaded = Record<DocumentKind, boolean>;
@@ -51,27 +54,40 @@ export function MerchantReviewForm({ uploaded }: { uploaded: Uploaded }) {
 
   const complete = REQUIRED.every((kind) => done[kind]);
   return (
-    <div className="grid max-w-xl gap-6">
-      {[...REQUIRED, ...OPTIONAL].map((kind) => (
-        <label key={kind} className="grid gap-2">
-          <span className="font-semibold">
-            {t(`kind.${kind}`)}
-            {OPTIONAL.includes(kind) && (
-              <span className="font-normal text-ink-muted"> · {t('optional')}</span>
-            )}
-          </span>
-          <span className="text-small text-ink-muted">
-            {done[kind] ? t('uploaded') : t('notUploaded')}
-          </span>
-          <input
-            type="file"
-            accept="application/pdf,image/jpeg,image/png"
-            disabled={busy}
-            onChange={(event) => upload(kind, event.target.files?.[0])}
-            className="text-small"
-          />
-        </label>
-      ))}
+    <div className="grid gap-4">
+      <ul className="grid gap-3">
+        {[...REQUIRED, ...OPTIONAL].map((kind) => (
+          <li key={kind}>
+            <label className="grid gap-3 rounded-control-ui border border-border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <span className="grid gap-1">
+                <span className="font-semibold text-ink">
+                  {t(`kind.${kind}`)}
+                  {OPTIONAL.includes(kind) && (
+                    <span className="font-normal text-ink-muted"> · {t('optional')}</span>
+                  )}
+                </span>
+                <span
+                  className={`flex items-center gap-1.5 text-small ${done[kind] ? 'text-save' : 'text-ink-muted'}`}
+                >
+                  {done[kind] ? (
+                    <CheckCircle2 aria-hidden="true" className="size-4" />
+                  ) : (
+                    <Circle aria-hidden="true" className="size-4" />
+                  )}
+                  {done[kind] ? t('uploaded') : t('notUploaded')}
+                </span>
+              </span>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                disabled={busy}
+                onChange={(event) => upload(kind, event.target.files?.[0])}
+                className="max-w-full text-small file:mr-3 file:rounded-control-ui file:border file:border-border file:bg-surface file:px-3 file:py-2 file:font-semibold file:text-ink"
+              />
+            </label>
+          </li>
+        ))}
+      </ul>
       {message && (
         <p role="alert" className="rounded-control-ui bg-error-tint p-3 text-error">
           {message}
@@ -81,7 +97,7 @@ export function MerchantReviewForm({ uploaded }: { uploaded: Uploaded }) {
         type="button"
         disabled={!complete || busy}
         onClick={submit}
-        className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60"
+        className={`justify-self-start ${primaryButtonClass}`}
       >
         {t('submit')}
       </button>

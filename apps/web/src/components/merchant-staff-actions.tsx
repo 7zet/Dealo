@@ -4,16 +4,54 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 
-const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
+import { ConfirmRemoveButton } from './merchant-confirm';
+import { FieldError, fieldClass as inputClass, primaryButtonClass } from './merchant-ui';
 const PHONE = /^\+998\d{9}$/;
 
 type AssignableRole = 'merchant_manager' | 'merchant_cashier';
 
+export type StaffErrorKey =
+  | 'errorOtherBusiness'
+  | 'errorAlreadyStaff'
+  | 'errorUserNotFound'
+  | 'errorStaffNotFound'
+  | 'errorOwnerProtected'
+  | 'errorStaffPhoneInvalid'
+  | 'errorForbidden'
+  | 'errorGeneric';
+
+/** Message key for a failed staff request, from its status and problem code. */
+export function staffErrorKey(status: number, code: string | undefined): StaffErrorKey {
+  switch (code) {
+    case 'already_in_another_business':
+      return 'errorOtherBusiness';
+    case 'already_staff':
+      return 'errorAlreadyStaff';
+    case 'user_not_found':
+      return 'errorUserNotFound';
+    case 'staff_not_found':
+      return 'errorStaffNotFound';
+    case 'owner_protected':
+      return 'errorOwnerProtected';
+    case 'invalid_phone':
+      return 'errorStaffPhoneInvalid';
+  }
+  if (status === 403) return 'errorForbidden';
+  return 'errorGeneric';
+}
+
+async function problemCode(response: Response): Promise<string | undefined> {
+  const problem = (await response.json().catch(() => ({}))) as { code?: string };
+  return problem.code;
+}
+
 /** Invite a manager or cashier by phone, change their role, or remove them. Only the owner sees these controls. */
 export function MerchantStaffInvite() {
   const t = useTranslations('MerchantPanel');
+  const ui = useTranslations('MerchantUI');
   const router = useRouter();
   const [phone, setPhone] = useState('+998');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [role, setRole] = useState<AssignableRole>('merchant_cashier');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,9 +60,10 @@ export function MerchantStaffInvite() {
     event.preventDefault();
     setMessage(null);
     if (!PHONE.test(phone)) {
-      setMessage(t('errorGeneric'));
+      setPhoneError(ui('errorStaffPhone'));
       return;
     }
+    setPhoneError(null);
     setBusy(true);
     const response = await fetch('/api/bff/merchant/staff', {
       method: 'POST',
@@ -33,7 +72,7 @@ export function MerchantStaffInvite() {
     });
     setBusy(false);
     if (!response.ok) {
-      setMessage(t('errorGeneric'));
+      setMessage(t(staffErrorKey(response.status, await problemCode(response))));
       return;
     }
     setPhone('+998');
@@ -43,22 +82,29 @@ export function MerchantStaffInvite() {
   return (
     <form
       onSubmit={invite}
-      className="grid gap-4 rounded-card border border-border p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+      noValidate
+      className="grid gap-4 rounded-card-ui border border-border bg-surface p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-start"
     >
       <div className="sm:col-span-3">
         <h2 className="font-semibold">{t('staffInviteTitle')}</h2>
-        <p className="text-sm text-ink-muted">{t('staffInviteHint')}</p>
+        <p className="text-small text-ink-muted">{t('staffInviteHint')}</p>
       </div>
-      <label className="grid gap-2 text-sm font-semibold">
-        {t('staffPhone')}
+      <div className="grid gap-1.5">
+        <label className="text-small font-semibold" htmlFor="staff-phone">
+          {t('staffPhone')}
+        </label>
         <input
+          id="staff-phone"
           className={inputClass}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           inputMode="tel"
+          aria-invalid={phoneError ? true : undefined}
+          aria-describedby={phoneError ? 'staff-phone-error' : undefined}
         />
-      </label>
-      <label className="grid gap-2 text-sm font-semibold">
+        <FieldError id="staff-phone-error" message={phoneError ?? undefined} />
+      </div>
+      <label className="grid gap-1.5 text-small font-semibold">
         {t('staffRole')}
         <select
           className={inputClass}
@@ -69,15 +115,11 @@ export function MerchantStaffInvite() {
           <option value="merchant_manager">{t('roleManager')}</option>
         </select>
       </label>
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
-      >
+      <button type="submit" disabled={busy} className={`sm:mt-6.5 ${primaryButtonClass}`}>
         {t('staffInvite')}
       </button>
       {message && (
-        <p role="alert" className="text-sm text-danger sm:col-span-3">
+        <p role="alert" className="text-small text-error sm:col-span-3">
           {message}
         </p>
       )}
@@ -111,7 +153,7 @@ export function MerchantStaffRow({
     });
     setBusy(false);
     if (!response.ok) {
-      setMessage(t('errorGeneric'));
+      setMessage(t(staffErrorKey(response.status, await problemCode(response))));
       return;
     }
     setCurrent(next);
@@ -124,7 +166,7 @@ export function MerchantStaffRow({
     const response = await fetch(`/api/bff/merchant/staff/${assignmentId}`, { method: 'DELETE' });
     setBusy(false);
     if (!response.ok) {
-      setMessage(t('errorGeneric'));
+      setMessage(t(staffErrorKey(response.status, await problemCode(response))));
       return;
     }
     router.refresh();
@@ -142,16 +184,14 @@ export function MerchantStaffRow({
         <option value="merchant_cashier">{t('roleCashier')}</option>
         <option value="merchant_manager">{t('roleManager')}</option>
       </select>
-      <button
-        type="button"
+      <ConfirmRemoveButton
         disabled={busy}
-        onClick={remove}
-        className="rounded-control-ui border border-border px-4 py-2 font-semibold"
-      >
-        {t('staffRemove')}
-      </button>
+        label={t('staffRemove')}
+        question={t('staffRemoveConfirm')}
+        onConfirm={remove}
+      />
       {message && (
-        <span role="alert" className="text-sm text-danger">
+        <span role="alert" className="text-sm text-error">
           {message}
         </span>
       )}

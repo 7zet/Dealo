@@ -1,26 +1,29 @@
-import type { components } from '@grupon/api-client';
+import { Store } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { Link } from '@/i18n/navigation';
-import { accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { MerchantSidebar, type SidebarGroup } from '@/components/merchant-sidebar';
+import { REVIEW_TONES, StatusBadge, type ReviewStatus } from '@/components/merchant-ui';
+import { getMe, SessionRequiredError } from '@/lib/account-api';
+import { allowedSections, NO_WORKSPACE_HREF } from '@/lib/merchant-access';
+import { getMerchantAccess } from '@/lib/merchant-session';
 
-type User = components['schemas']['User'];
+/** True when the visitor holds a session the API accepts. */
+async function hasSession(): Promise<boolean> {
+  try {
+    return (await getMe()) !== null;
+  } catch (error) {
+    if (error instanceof SessionRequiredError) return false;
+    throw error;
+  }
+}
 
-/** Panel sections added after the first release. Labels come from MerchantPanel so each reads in the locale. */
-const MERCHANT_LINKS = [
-  { href: '/merchant/staff', key: 'navStaff' },
-  { href: '/merchant/orders', key: 'navOrders' },
-  { href: '/merchant/payouts', key: 'navPayouts' },
-  { href: '/merchant/customers', key: 'navCustomers' },
-  { href: '/merchant/analytics', key: 'navAnalytics' },
-  { href: '/merchant/reviews', key: 'navReviews' },
-  { href: '/merchant/calculator', key: 'navCalculator' },
-  { href: '/merchant/settings', key: 'navSettings' },
-] as const;
-
-/** Role guard for the merchant panel. The API enforces the same rule on every merchant operation. */
+/**
+ * Frame of the merchant workspace: the business card, the visitor's role, the review status and the
+ * sections their membership permits. Each page also guards itself with requirePanelPermission, and
+ * the API enforces the same permissions on every merchant operation.
+ */
 export default async function PanelLayout({
   children,
   params,
@@ -29,64 +32,69 @@ export default async function PanelLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const user = await loadForVisitor(locale, `/${locale}/merchant/dashboard`, () =>
-    accountGetOrNull<User>('/me'),
-  );
-  const isMerchant = Boolean(user?.roles.some((role) => role.startsWith('merchant_')));
-  if (!isMerchant) redirect(`/${locale}/merchant/register`);
+  const access = await getMerchantAccess();
+  if (!access) {
+    // Signed-out visitors: a layout does not know the URL, so the page's own guard sends them to sign
+    // in and back to that same page. Signed-in accounts without a workspace register one.
+    if (!(await hasSession())) return <>{children}</>;
+    redirect(`/${locale}${NO_WORKSPACE_HREF}`);
+  }
 
-  const t = await getTranslations('Panel');
-  const m = await getTranslations('MerchantPanel');
+  const [panel, merchantPanel, profile, ui] = await Promise.all([
+    getTranslations('Panel'),
+    getTranslations('MerchantPanel'),
+    getTranslations('Profile'),
+    getTranslations('MerchantUI'),
+  ]);
+  const items = allowedSections(access.permissions).map((section) => ({
+    href: section.href,
+    label: section.ns === 'Panel' ? panel(section.key) : merchantPanel(section.key),
+  }));
+  // Documents and the review submission are the owner's (business.manage).
+  if (access.can('business.manage')) {
+    items.push({ href: '/merchant/review', label: ui('navReview') });
+  }
+  const role =
+    access.membership?.role ?? access.user.roles.find((value) => value.startsWith('merchant_'));
+  const status = access.membership?.review_status as ReviewStatus | undefined;
+  const groupLabels: Record<SidebarGroup, string> = {
+    overview: ui('groupOverview'),
+    sales: ui('groupSales'),
+    operations: ui('groupOperations'),
+    finance: ui('groupFinance'),
+    team: ui('groupTeam'),
+  };
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <nav aria-label="Merchant" className="flex flex-wrap gap-2 border-b border-border pb-3">
-        <Link
-          href="/merchant/dashboard"
-          className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-        >
-          {t('navOverview')}
-        </Link>
-        <Link
-          href="/merchant/business"
-          className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-        >
-          {t('navBusiness')}
-        </Link>
-        <Link
-          href="/merchant/deals"
-          className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-        >
-          {t('navDeals')}
-        </Link>
-        <Link
-          href="/merchant/deals/new"
-          className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-        >
-          {t('navCreateDeal')}
-        </Link>
-        <Link
-          href="/merchant/media"
-          className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-        >
-          {t('navMedia')}
-        </Link>
-        <Link
-          href="/merchant/redeem"
-          className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-        >
-          {t('navRedeem')}
-        </Link>
-        {MERCHANT_LINKS.map(({ href, key }) => (
-          <Link
-            key={href}
-            href={href}
-            className="rounded-control-ui px-4 py-2 text-ink-muted hover:text-ink"
-          >
-            {m(key)}
-          </Link>
-        ))}
-      </nav>
-      <div className="mt-8">{children}</div>
+    <div className="mx-auto max-w-layout px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:gap-10">
+        <aside className="grid min-w-0 content-start gap-4 lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:gap-6 lg:self-start">
+          <div className="flex items-center gap-3 rounded-card-ui border border-border bg-surface p-3.5">
+            <span className="grid size-11 shrink-0 place-items-center rounded-control-ui bg-night text-neon">
+              <Store aria-hidden="true" className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-bold text-ink">
+                {access.membership?.merchant_name ?? panel('panelLabel')}
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {role && (
+                  <span className="text-label font-semibold text-ink-muted">
+                    {profile(`role.${role}`)}
+                  </span>
+                )}
+                {status && (
+                  <StatusBadge tone={REVIEW_TONES[status]}>{ui(`status.${status}`)}</StatusBadge>
+                )}
+              </div>
+            </div>
+          </div>
+          <MerchantSidebar items={items} groupLabels={groupLabels} label={panel('panelLabel')} />
+        </aside>
+        {/* One minmax(0,1fr) column: a wide child (KPI row, table) shrinks to the screen instead of
+            widening the page on a phone. */}
+        <div className="grid min-w-0 grid-cols-1 content-start gap-6">{children}</div>
+      </div>
     </div>
   );
 }

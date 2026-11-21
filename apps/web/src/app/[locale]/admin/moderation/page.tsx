@@ -1,24 +1,18 @@
 import type { components } from '@grupon/api-client';
 import { formatMoney } from '@grupon/ui';
 import { getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 
 import { ModerationActions } from '@/components/moderation-actions';
-import { accountGet, accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { accountGet } from '@/lib/account-api';
+import { requireAdminArea } from '@/lib/admin-session';
 import { pickText } from '@/lib/localized';
 
 type DealPage = components['schemas']['DealPage'];
-type User = components['schemas']['User'];
-
-const REVIEWERS = ['superadmin', 'admin', 'moderator'];
 
 export default async function ModerationPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const t = await getTranslations('Moderation');
-  const user = await loadForVisitor(locale, `/${locale}/admin/moderation`, () =>
-    accountGetOrNull<User>('/me'),
-  );
-  if (!user?.roles.some((role) => REVIEWERS.includes(role))) notFound();
+  await requireAdminArea('moderation', locale);
   const queue = await accountGet<DealPage>('/admin/moderation/deals');
   const money = (amount: number) =>
     formatMoney(amount, locale as Parameters<typeof formatMoney>[1], 'UZS');

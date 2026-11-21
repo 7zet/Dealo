@@ -25,7 +25,7 @@ export default async function OrderPage({
     formatMoney(amount, locale as Parameters<typeof formatMoney>[1], 'UZS');
 
   return (
-    <AccountShell section="orders">
+    <AccountShell section="orders" detail>
       <h2 className="text-lead font-semibold text-ink">
         {t('orderTitle')} {order.number}
       </h2>
@@ -36,7 +36,7 @@ export default async function OrderPage({
         </div>
         <div className="flex justify-between">
           <dt className="text-ink-muted">{t('status')}</dt>
-          <dd>{order.status}</dd>
+          <dd>{t(`orderStatus.${order.status}`)}</dd>
         </div>
         <div className="flex justify-between">
           <dt className="text-ink-muted">{t('total')}</dt>
@@ -46,10 +46,26 @@ export default async function OrderPage({
       <ul className="mt-6 grid gap-3">
         {order.items.map((item) => (
           <li key={item.id} className="rounded-card border border-border bg-surface p-4">
+            {/* Option title and price come from the purchase snapshot, not the live deal. */}
             <span className="block font-semibold text-ink">
               {pickText(item.title_snapshot, locale)}
             </span>
-            <span className="text-sm text-ink-muted">× {item.quantity}</span>
+            <dl className="mt-2 grid gap-1 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-muted">{t('unitPrice')}</dt>
+                <dd className="tabular-nums text-ink">{money(item.unit_price.amount)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-muted">{t('quantity')}</dt>
+                <dd className="tabular-nums text-ink">{item.quantity}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-muted">{t('total')}</dt>
+                <dd className="font-semibold tabular-nums text-ink">
+                  {money(item.unit_price.amount * item.quantity)}
+                </dd>
+              </div>
+            </dl>
           </li>
         ))}
       </ul>

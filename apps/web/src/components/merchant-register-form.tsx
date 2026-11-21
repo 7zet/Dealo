@@ -3,28 +3,35 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useRouter } from '@/i18n/navigation';
 
+import { FieldError, fieldClass, primaryButtonClass } from './merchant-ui';
+
 type Option = { id: string; label: string };
 type City = Option & { lat: number; lng: number };
 
+// Error messages are translation keys: MerchantUI keys, or MerchantRegister keys prefixed with "r:".
 const schema = z.object({
-  legalName: z.string().trim().min(2),
-  displayName: z.string().trim().min(2),
-  categoryId: z.string().min(1),
-  cityId: z.string().min(1),
-  phone: z.string().trim().min(7),
-  address: z.string().trim().min(3),
-  stir: z.string().regex(/^[0-9]{9}$/),
-  orgForm: z.enum(['mchj', 'yatt']),
-  taxRegime: z.enum(['vat_payer', 'turnover_tax']),
-  bankMfo: z.string().regex(/^[0-9]{5}$/),
-  bankAccount: z.string().regex(/^[0-9]{20}$/),
-  responsibleName: z.string().trim().min(2),
-  contractAccepted: z.literal(true),
+  legalName: z.string().trim().min(2, 'errorMinLength'),
+  displayName: z.string().trim().min(2, 'errorMinLength'),
+  categoryId: z.string().min(1, 'errorChoose'),
+  cityId: z.string().min(1, 'errorChoose'),
+  // Same rule as the API: digits with optional +, spaces, brackets and dashes.
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9][0-9 ()-]{6,19}$/, 'r:errorPhone'),
+  address: z.string().trim().min(3, 'errorRequired'),
+  stir: z.string().regex(/^[0-9]{9}$/, 'r:errorStir'),
+  orgForm: z.enum(['mchj', 'yatt'], { message: 'r:errorOrgForm' }),
+  taxRegime: z.enum(['vat_payer', 'turnover_tax'], { message: 'r:errorTaxRegime' }),
+  bankMfo: z.string().regex(/^[0-9]{5}$/, 'r:errorMfo'),
+  bankAccount: z.string().regex(/^[0-9]{20}$/, 'r:errorAccount'),
+  responsibleName: z.string().trim().min(2, 'r:errorResponsible'),
+  contractAccepted: z.literal(true, { message: 'r:errorContract' }),
 });
 type Values = z.infer<typeof schema>;
 
@@ -56,32 +63,54 @@ function problemKey(code: string | undefined) {
       return 'errorContract' as const;
     case 'already_submitted':
       return 'errorAlreadySubmitted' as const;
+    case 'already_in_another_business':
+      return 'errorOtherBusiness' as const;
     default:
       return 'errorGeneric' as const;
   }
 }
 
-const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
+/** Server problem codes that belong to one field; the message is shown under that field. */
+const FIELD_OF_CODE: Partial<Record<string, keyof Values>> = {
+  invalid_phone: 'phone',
+  invalid_stir: 'stir',
+  stir_taken: 'stir',
+  invalid_org_form: 'orgForm',
+  invalid_tax_regime: 'taxRegime',
+  invalid_mfo: 'bankMfo',
+  invalid_bank_account: 'bankAccount',
+  city_not_found: 'cityId',
+  category_not_found: 'categoryId',
+  contract_not_accepted: 'contractAccepted',
+};
 
+/**
+ * Business details form (step 2 of registration). Fields are grouped like the paper forms merchants
+ * know, every field shows its own error inline, and nothing on it moves.
+ */
 export function MerchantRegisterForm({
   categories,
   cities,
+  defaultPhone = '',
 }: {
   categories: Option[];
   cities: City[];
+  defaultPhone?: string;
 }) {
   const t = useTranslations('MerchantRegister');
+  const ui = useTranslations('MerchantUI');
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
+    mode: 'onTouched',
     defaultValues: {
       legalName: '',
       displayName: '',
       categoryId: '',
       cityId: '',
-      phone: '',
+      phone: defaultPhone,
       address: '',
       stir: '',
       orgForm: 'mchj',
@@ -92,6 +121,14 @@ export function MerchantRegisterForm({
       contractAccepted: undefined as unknown as true,
     },
   });
+
+  /** Resolves a schema message key ("r:" = MerchantRegister namespace, otherwise MerchantUI). */
+  function message(key: string | undefined): string | undefined {
+    if (!key) return undefined;
+    return key.startsWith('r:')
+      ? t(key.slice(2) as Parameters<typeof t>[0])
+      : ui(key as Parameters<typeof ui>[0]);
+  }
 
   // Registration and review submission are one user step: the merchant only sees the review status.
   // Coordinates default to the city centre; the map pin on the business page refines them later.
@@ -122,141 +159,191 @@ export function MerchantRegisterForm({
     });
     if (!registered.ok) {
       const problem = (await registered.json().catch(() => ({}))) as { code?: string };
-      setError(t(problemKey(problem.code)));
+      const text = t(problemKey(problem.code));
+      const field = problem.code ? FIELD_OF_CODE[problem.code] : undefined;
+      if (field) {
+        form.setError(field, { type: 'server', message: text }, { shouldFocus: true });
+      } else {
+        setError(text);
+      }
       return;
     }
     // Documents and the final submission happen on the review page, which shows the status too.
-    router.push('/merchant/review');
+    // refresh() drops the cached signed-out/no-workspace renders so the panel sees the new business.
+    router.replace('/merchant/review');
+    router.refresh();
   }
 
   const errors = form.formState.errors;
-  return (
-    <form className="mt-10 grid max-w-xl gap-5" noValidate onSubmit={form.handleSubmit(submit)}>
-      <label className="grid gap-1" htmlFor="legalName">
-        {t('legalName')}
-        <input
-          id="legalName"
-          className={inputClass}
-          aria-invalid={Boolean(errors.legalName)}
-          {...form.register('legalName')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="displayName">
-        {t('displayName')}
-        <input
-          id="displayName"
-          className={inputClass}
-          aria-invalid={Boolean(errors.displayName)}
-          {...form.register('displayName')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="stir">
-        {t('stir')}
-        <input
-          id="stir"
-          inputMode="numeric"
-          maxLength={9}
-          className={inputClass}
-          aria-invalid={Boolean(errors.stir)}
-          {...form.register('stir')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="orgForm">
-        {t('orgForm')}
-        <select id="orgForm" className={inputClass} {...form.register('orgForm')}>
-          <option value="mchj">{t('orgFormMchj')}</option>
-          <option value="yatt">{t('orgFormYatt')}</option>
-        </select>
-      </label>
-      <label className="grid gap-1" htmlFor="taxRegime">
-        {t('taxRegime')}
-        <select id="taxRegime" className={inputClass} {...form.register('taxRegime')}>
-          <option value="vat_payer">{t('taxVat')}</option>
-          <option value="turnover_tax">{t('taxTurnover')}</option>
-        </select>
-      </label>
-      <label className="grid gap-1" htmlFor="bankMfo">
-        {t('bankMfo')}
-        <input
-          id="bankMfo"
-          inputMode="numeric"
-          maxLength={5}
-          className={inputClass}
-          aria-invalid={Boolean(errors.bankMfo)}
-          {...form.register('bankMfo')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="bankAccount">
-        {t('bankAccount')}
-        <input
-          id="bankAccount"
-          inputMode="numeric"
-          maxLength={20}
-          className={inputClass}
-          aria-invalid={Boolean(errors.bankAccount)}
-          {...form.register('bankAccount')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="responsibleName">
-        {t('responsibleName')}
-        <input
-          id="responsibleName"
-          className={inputClass}
-          aria-invalid={Boolean(errors.responsibleName)}
-          {...form.register('responsibleName')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="categoryId">
-        {t('category')}
-        <select id="categoryId" className={inputClass} {...form.register('categoryId')}>
-          <option value="">{t('choose')}</option>
-          {categories.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1" htmlFor="cityId">
-        {t('city')}
-        <select id="cityId" className={inputClass} {...form.register('cityId')}>
-          <option value="">{t('choose')}</option>
-          {cities.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1" htmlFor="phone">
-        {t('phone')}
-        <input
-          id="phone"
-          type="tel"
-          className={inputClass}
-          aria-invalid={Boolean(errors.phone)}
-          {...form.register('phone')}
-        />
-      </label>
-      <label className="grid gap-1" htmlFor="address">
-        {t('address')}
-        <input
-          id="address"
-          className={inputClass}
-          aria-invalid={Boolean(errors.address)}
-          {...form.register('address')}
-        />
-      </label>
-      <label className="flex items-start gap-3 text-small" htmlFor="contractAccepted">
-        <input
-          id="contractAccepted"
-          type="checkbox"
-          className="mt-1"
-          {...form.register('contractAccepted')}
-        />
-        <span>{t('contract')}</span>
-      </label>
+  const fieldMessage = (name: keyof Values) => {
+    const raw = (errors as FieldErrors<Values>)[name]?.message;
+    if (!raw) return undefined;
+    // Server errors are already translated; schema errors carry a key.
+    return errors[name]?.type === 'server' ? raw : message(raw);
+  };
 
+  const text = (
+    name: keyof Values,
+    label: string,
+    options: {
+      hint?: string;
+      inputMode?: 'numeric' | 'tel';
+      maxLength?: number;
+      type?: string;
+      autoComplete?: string;
+    } = {},
+  ) => {
+    const problem = fieldMessage(name);
+    const described = [options.hint ? `${name}-hint` : null, problem ? `${name}-error` : null]
+      .filter(Boolean)
+      .join(' ');
+    return (
+      <div className="grid content-start gap-1.5">
+        <label className="text-small font-semibold text-ink" htmlFor={name}>
+          {label}
+        </label>
+        <input
+          id={name}
+          type={options.type ?? 'text'}
+          inputMode={options.inputMode}
+          maxLength={options.maxLength}
+          autoComplete={options.autoComplete}
+          className={fieldClass}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={described || undefined}
+          {...form.register(name)}
+        />
+        {options.hint && !problem && (
+          <p id={`${name}-hint`} className="text-label text-ink-muted">
+            {options.hint}
+          </p>
+        )}
+        <FieldError id={`${name}-error`} message={problem} />
+      </div>
+    );
+  };
+
+  const select = (
+    name: keyof Values,
+    label: string,
+    choices: { value: string; label: string }[],
+  ) => {
+    const problem = fieldMessage(name);
+    return (
+      <div className="grid content-start gap-1.5">
+        <label className="text-small font-semibold text-ink" htmlFor={name}>
+          {label}
+        </label>
+        <select
+          id={name}
+          className={fieldClass}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={problem ? `${name}-error` : undefined}
+          {...form.register(name)}
+        >
+          {choices.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </select>
+        <FieldError id={`${name}-error`} message={problem} />
+      </div>
+    );
+  };
+
+  const fieldset = (legend: string, children: React.ReactNode) => (
+    <fieldset className="grid gap-4 rounded-card-ui border border-border bg-surface p-5 sm:grid-cols-2 sm:p-6">
+      <legend className="float-left mb-1 w-full text-lead font-bold text-ink sm:col-span-2">
+        {legend}
+      </legend>
+      {children}
+    </fieldset>
+  );
+
+  const hasErrors = Object.keys(errors).length > 0;
+  const contractProblem = fieldMessage('contractAccepted');
+
+  return (
+    <form className="mt-6 grid gap-5" noValidate onSubmit={form.handleSubmit(submit)}>
+      {fieldset(
+        ui('sectionBusiness'),
+        <>
+          {text('displayName', t('displayName'), { hint: ui('hintDisplayName') })}
+          {select('categoryId', t('category'), [
+            { value: '', label: t('choose') },
+            ...categories.map((item) => ({ value: item.id, label: item.label })),
+          ])}
+        </>,
+      )}
+      {fieldset(
+        ui('sectionLegal'),
+        <>
+          {text('legalName', t('legalName'))}
+          {text('stir', t('stir'), { hint: ui('hintStir'), inputMode: 'numeric', maxLength: 9 })}
+          {select('orgForm', t('orgForm'), [
+            { value: 'mchj', label: t('orgFormMchj') },
+            { value: 'yatt', label: t('orgFormYatt') },
+          ])}
+          {select('taxRegime', t('taxRegime'), [
+            { value: 'vat_payer', label: t('taxVat') },
+            { value: 'turnover_tax', label: t('taxTurnover') },
+          ])}
+          {text('responsibleName', t('responsibleName'), { autoComplete: 'name' })}
+        </>,
+      )}
+      {fieldset(
+        ui('sectionBank'),
+        <>
+          {text('bankMfo', t('bankMfo'), {
+            hint: ui('hintMfo'),
+            inputMode: 'numeric',
+            maxLength: 5,
+          })}
+          {text('bankAccount', t('bankAccount'), {
+            hint: ui('hintAccount'),
+            inputMode: 'numeric',
+            maxLength: 20,
+          })}
+        </>,
+      )}
+      {fieldset(
+        ui('sectionContact'),
+        <>
+          {select('cityId', t('city'), [
+            { value: '', label: t('choose') },
+            ...cities.map((item) => ({ value: item.id, label: item.label })),
+          ])}
+          {text('phone', t('phone'), {
+            hint: ui('hintPhone'),
+            inputMode: 'tel',
+            type: 'tel',
+            autoComplete: 'tel',
+          })}
+          <div className="sm:col-span-2">
+            {text('address', t('address'), { autoComplete: 'street-address' })}
+          </div>
+        </>,
+      )}
+
+      <div className="grid gap-1.5 rounded-card-ui border border-border bg-surface p-5">
+        <label className="flex items-start gap-3 text-ink" htmlFor="contractAccepted">
+          <input
+            id="contractAccepted"
+            type="checkbox"
+            className="mt-1 size-4 accent-[var(--brand)]"
+            aria-invalid={contractProblem ? true : undefined}
+            aria-describedby={contractProblem ? 'contractAccepted-error' : undefined}
+            {...form.register('contractAccepted')}
+          />
+          <span>{t('contract')}</span>
+        </label>
+        <FieldError id="contractAccepted-error" message={contractProblem} />
+      </div>
+
+      {hasErrors && form.formState.isSubmitted && (
+        <p className="text-small text-error">{ui('formErrorsSummary')}</p>
+      )}
       {error && (
         <p
           role="alert"
@@ -270,9 +357,9 @@ export function MerchantRegisterForm({
       <button
         type="submit"
         disabled={form.formState.isSubmitting}
-        className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60"
+        className={`justify-self-start px-6 py-3 ${primaryButtonClass}`}
       >
-        {t('submitForReview')}
+        {form.formState.isSubmitting ? ui('submitting') : t('submitForReview')}
       </button>
     </form>
   );

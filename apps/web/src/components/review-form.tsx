@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -20,6 +20,7 @@ export function ReviewForm({ voucherId, locale }: { voucherId: string; locale: s
   const t = useTranslations('Reviews');
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { rating: 5, text: '' },
@@ -42,7 +43,23 @@ export function ReviewForm({ voucherId, locale }: { voucherId: string; locale: s
       setMessage(problem.code === 'review_exists' ? t('alreadyReviewed') : t('errorGeneric'));
       return;
     }
+    setSent(true);
     router.refresh();
+  }
+
+  if (sent) {
+    return (
+      <div
+        role="status"
+        className="grid w-full gap-2 rounded-card border border-border bg-save-tint p-5 text-left"
+      >
+        <p className="font-semibold text-save">{t('submitted')}</p>
+        <p className="text-sm text-ink-muted">{t('submittedText')}</p>
+        <Link href="/account/reviews" className="w-fit text-sm font-semibold text-brand">
+          {t('viewMine')}
+        </Link>
+      </div>
+    );
   }
 
   const errors = form.formState.errors;

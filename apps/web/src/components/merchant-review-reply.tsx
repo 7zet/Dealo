@@ -45,7 +45,7 @@ export function MerchantReviewReply({
 
   if (!editing && initialText !== null) {
     return (
-      <div className="grid gap-2 rounded-control-ui bg-surface-muted p-4">
+      <div className="grid gap-2 rounded-control-ui bg-page p-4">
         <p className="text-sm font-semibold">{t('yourReply')}</p>
         <p className="text-sm">{initialText}</p>
         {canEdit && (
@@ -76,7 +76,7 @@ export function MerchantReviewReply({
         <button
           type="submit"
           disabled={busy || text.trim().length === 0}
-          className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+          className="rounded-control-ui bg-brand px-5 py-2.5 font-semibold text-surface hover:bg-brand-hover disabled:opacity-60"
         >
           {t('sendReply')}
         </button>

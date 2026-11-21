@@ -3,6 +3,18 @@ import path from 'node:path';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Browser components (search suggestions, "Load more") read public catalog data through these
+  // same-origin paths; the API has no CORS. Only public reads are exposed, never account routes.
+  async rewrites() {
+    const api = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api/v1').replace(
+      /\/+$/,
+      '',
+    );
+    return [
+      { source: '/api/public/deals', destination: `${api}/deals` },
+      { source: '/api/public/search/suggestions', destination: `${api}/search/suggestions` },
+    ];
+  },
   allowedDevOrigins: ['127.0.0.1'],
   transpilePackages: ['@grupon/api-client', '@grupon/config', '@grupon/i18n', '@grupon/ui'],
   images: {

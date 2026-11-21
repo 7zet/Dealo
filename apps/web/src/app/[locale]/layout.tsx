@@ -32,7 +32,10 @@ export async function generateMetadata({ params }: LocaleLayoutProps): Promise<M
   return {
     description: t('description'),
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-    title: t('title', { brand: brandConfig.name }),
+    title: {
+      default: t('title', { brand: brandConfig.name }),
+      template: `%s | ${brandConfig.name}`,
+    },
   };
 }
 

@@ -4,7 +4,7 @@ import { Home, Search, Ticket, UserRound } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import type { PropsWithChildren } from 'react';
 import { Link } from '@/i18n/navigation';
-import { BusinessNavLink } from './business-nav-link';
+import { BusinessNavLink, BusinessTabLink } from './business-nav-link';
 import { SiteHeader } from './site-header';
 
 type Props = PropsWithChildren<{ config: PublicConfig; locale: Locale; currency: Currency }>;
@@ -54,7 +54,8 @@ export async function SiteShell({ children, config, locale }: Props) {
           © {new Date().getFullYear()} {brandConfig.name}. {footer('rights')}
         </div>
       </footer>
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+      {/* Flex, not a fixed grid: the business tab appears only for merchant workspace members. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
         <MobileLink href="/" label={t('home')}>
           <Home />
         </MobileLink>
@@ -64,7 +65,8 @@ export async function SiteShell({ children, config, locale }: Props) {
         <MobileLink href="/account/coupons" label={t('coupons')}>
           <Ticket />
         </MobileLink>
-        <MobileLink href="/login" label={t('account')}>
+        <BusinessTabLink className={mobileLinkClass} />
+        <MobileLink href="/account" label={t('account')}>
           <UserRound />
         </MobileLink>
       </nav>
@@ -72,12 +74,12 @@ export async function SiteShell({ children, config, locale }: Props) {
   );
 }
 
+const mobileLinkClass =
+  'flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-center text-[12px] leading-tight text-ink-muted';
+
 function MobileLink({ href, label, children }: PropsWithChildren<{ href: string; label: string }>) {
   return (
-    <Link
-      className="flex min-h-16 flex-col items-center justify-center gap-1 text-[12px] text-ink-muted"
-      href={href}
-    >
+    <Link className={mobileLinkClass} href={href}>
       {children}
       <span>{label}</span>
     </Link>

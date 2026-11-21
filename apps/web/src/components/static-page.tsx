@@ -1,10 +1,25 @@
-import { brandConfig } from '@grupon/config';
+import { brandConfig, type Locale } from '@grupon/config';
+import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
+
+type TitleKey = 'helpTitle' | 'termsTitle' | 'privacyTitle';
+
+/** generateMetadata for a static page: its heading becomes the tab title. */
+export function staticPageMetadata(
+  titleKey: TitleKey,
+  textKey: 'helpText' | 'termsText' | 'privacyText',
+) {
+  return async ({ params }: { params: Promise<{ locale: Locale }> }): Promise<Metadata> => {
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: 'Static' });
+    return { title: t(titleKey), description: t(textKey) };
+  };
+}
 export async function StaticPage({
   titleKey,
   textKey,
 }: {
-  titleKey: 'helpTitle' | 'termsTitle' | 'privacyTitle';
+  titleKey: TitleKey;
   textKey: 'helpText' | 'termsText' | 'privacyText';
 }) {
   const t = await getTranslations('Static');

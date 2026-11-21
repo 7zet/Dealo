@@ -1,9 +1,16 @@
-import { getTranslations } from 'next-intl/server';
+import type { Metadata } from 'next';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { Search } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('ErrorPage');
+  return { title: t('notFoundTitle') };
+}
+
 export default async function NotFound() {
   const t = await getTranslations('ErrorPage');
   const nav = await getTranslations('Navigation');
+  const locale = await getLocale();
   return (
     <div className="mx-auto max-w-xl px-4 py-20 text-center">
       <div className="mx-auto flex size-16 items-center justify-center rounded-round-ui bg-brand-tint text-brand">
@@ -17,10 +24,11 @@ export default async function NotFound() {
       >
         {t('home')}
       </Link>
-      <form className="relative mt-8" action="search">
+      <form className="relative mt-8" action={`/${locale}/search`}>
         <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-ink-muted" />
         <input
           name="q"
+          aria-label={nav('search')}
           className="h-12 w-full rounded-control-ui border bg-surface pl-10 pr-4"
           placeholder={nav('searchPlaceholder')}
         />

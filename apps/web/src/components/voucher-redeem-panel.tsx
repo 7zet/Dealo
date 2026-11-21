@@ -3,15 +3,24 @@
 import type { components } from '@grupon/api-client';
 import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { formatWait, retryAfterSeconds } from '@/components/auth-form';
 import { pickText } from '@/lib/localized';
+import {
+  VOUCHER_CODE_MAX_LENGTH,
+  formatVoucherCode,
+  isCompleteVoucherCode,
+} from '@/lib/voucher-code';
 
 type Voucher = components['schemas']['Voucher'];
 type Location = { id: string; label: string };
 
-const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink text-lg';
+// The base stylesheet sets `font: inherit` on form controls, so the size comes from the label
+// (text-lead, 18px): at 16px or more iOS does not zoom into the field on focus.
+const labelClass = 'grid gap-1 text-lead';
+const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
 
 /** Problem codes the counter needs to explain. Anything else shows the generic message. */
 const PROBLEM_KEYS = [
@@ -23,28 +32,61 @@ const PROBLEM_KEYS = [
   'wrong_merchant',
   'voucher_not_found',
   'invalid_qr',
+  'invalid_code',
   'location_not_found',
+  'too_many_attempts',
+  'category_not_redeemable',
 ] as const;
 
-type ProblemKey = (typeof PROBLEM_KEYS)[number] | 'errorGeneric';
+type ProblemKey =
+  | (typeof PROBLEM_KEYS)[number]
+  | 'errorGeneric'
+  | 'codeRequired'
+  | 'scanner_blocked'
+  | 'scanner_blocked_unknown'
+  | 'sessionExpired';
 
-function problemKey(code: string | undefined): ProblemKey {
-  return (PROBLEM_KEYS as readonly string[]).includes(code ?? '')
-    ? (code as ProblemKey)
-    : 'errorGeneric';
+type Message = { key: ProblemKey; time?: string };
+
+type Failure = { ok: false; status: number; code?: string; retryAfter: number };
+
+/** The message for a failed call. A 401 means the session ended and cannot be renewed. */
+function problemMessage(failure: Failure): Message {
+  if (failure.status === 401) return { key: 'sessionExpired' };
+  if (failure.code === 'scanner_blocked') {
+    return failure.retryAfter > 0
+      ? { key: 'scanner_blocked', time: formatWait(failure.retryAfter) }
+      : { key: 'scanner_blocked_unknown' };
+  }
+  const known = (PROBLEM_KEYS as readonly string[]).includes(failure.code ?? '');
+  return { key: known ? (failure.code as ProblemKey) : 'errorGeneric' };
 }
 
 async function call(
   path: string,
   body: unknown,
-): Promise<{ ok: true; voucher: Voucher } | { ok: false; code?: string }> {
-  const response = await fetch(`/api/bff/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json().catch(() => ({}))) as Voucher & { code?: string };
-  return response.ok ? { ok: true, voucher: data } : { ok: false, code: data.code };
+): Promise<{ ok: true; voucher: Voucher } | Failure> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/bff/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, status: 0, retryAfter: 0 };
+  }
+  const data = (await response.json().catch(() => ({}))) as Voucher & {
+    code?: string;
+    retry_after_seconds?: number;
+  };
+  if (response.ok) return { ok: true, voucher: data };
+  return {
+    ok: false,
+    status: response.status,
+    code: data.code,
+    retryAfter: retryAfterSeconds(data, response.headers.get('Retry-After')),
+  };
 }
 
 export function VoucherRedeemPanel({
@@ -61,19 +103,39 @@ export function VoucherRedeemPanel({
   const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
   const [voucher, setVoucher] = useState<Voucher | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [message, setMessage] = useState<ProblemKey | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   async function lookup(body: { code: string } | { qr_token: string }) {
     setMessage(null);
     setDone(false);
+    setBusy(true);
     const result = await call('merchant/vouchers/lookup', body);
+    setBusy(false);
     if (!result.ok) {
       setVoucher(null);
-      setMessage(problemKey(result.code));
+      setMessage(problemMessage(result));
       return;
     }
     setVoucher(result.voucher);
+  }
+
+  /** Typed codes are checked here first: an empty or incomplete code never reaches the API. */
+  function submitCode() {
+    if (busy) return;
+    const formatted = formatVoucherCode(code);
+    if (formatted === '') {
+      setVoucher(null);
+      setMessage({ key: 'codeRequired' });
+      return;
+    }
+    if (!isCompleteVoucherCode(formatted)) {
+      setVoucher(null);
+      setMessage({ key: 'invalid_code' });
+      return;
+    }
+    void lookup({ code: formatted });
   }
 
   // The camera runs only while the scan mode is on, and stops as soon as a code is read.
@@ -95,7 +157,7 @@ export function VoucherRedeemPanel({
       })
       .catch(() => {
         setScanning(false);
-        setMessage('errorGeneric');
+        setMessage({ key: 'errorGeneric' });
       });
     return () => {
       stopped = true;
@@ -105,13 +167,15 @@ export function VoucherRedeemPanel({
   }, [scanning]);
 
   async function confirm() {
-    if (!voucher || !locationId) return;
+    if (!voucher || !locationId || busy) return;
     setMessage(null);
+    setBusy(true);
     const result = await call(`merchant/vouchers/${voucher.id}/redeem`, {
       location_id: locationId,
     });
+    setBusy(false);
     if (!result.ok) {
-      setMessage(problemKey(result.code));
+      setMessage(problemMessage(result));
       return;
     }
     setVoucher(result.voucher);
@@ -123,8 +187,8 @@ export function VoucherRedeemPanel({
   return (
     <div className="grid gap-6">
       <section className="grid max-w-xl gap-3">
-        <label className="grid gap-1 text-sm">
-          {t('locationLabel')}
+        <label className={labelClass}>
+          <span className="text-sm">{t('locationLabel')}</span>
           <select
             className={inputClass}
             value={locationId}
@@ -139,25 +203,33 @@ export function VoucherRedeemPanel({
         </label>
         <form
           className="grid gap-3"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            void lookup({ code: code.trim().toUpperCase() });
+            submitCode();
           }}
         >
-          <label className="grid gap-1 text-sm">
-            {t('codeLabel')}
+          <label className={labelClass}>
+            <span className="text-sm">{t('codeLabel')}</span>
             <input
-              className={inputClass}
+              className={`${inputClass} font-semibold tracking-widest`}
               placeholder="XXXX-XXXX"
               autoCapitalize="characters"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="search"
+              maxLength={VOUCHER_CODE_MAX_LENGTH}
               value={code}
-              onChange={(event) => setCode(event.target.value)}
+              aria-invalid={message?.key === 'codeRequired' || message?.key === 'invalid_code'}
+              onChange={(event) => setCode(formatVoucherCode(event.target.value))}
             />
           </label>
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
-              className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+              disabled={busy}
+              className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60"
             >
               {t('check')}
             </button>
@@ -173,7 +245,7 @@ export function VoucherRedeemPanel({
         {scanning && (
           <video
             ref={videoRef}
-            className="aspect-square w-full rounded-card bg-ink object-cover"
+            className="aspect-square w-full rounded-card-ui bg-ink object-cover"
             muted
             playsInline
           />
@@ -186,14 +258,29 @@ export function VoucherRedeemPanel({
           className="flex max-w-xl items-start gap-2 rounded-control-ui bg-error-tint p-3 text-error"
         >
           <span aria-hidden="true">!</span>
-          <span>{t(message)}</span>
+          <span>
+            {message.key === 'scanner_blocked'
+              ? t('scanner_blocked', { time: message.time ?? '' })
+              : t(message.key)}
+            {message.key === 'sessionExpired' && (
+              <>
+                {' '}
+                <Link
+                  href={`/login?next=${encodeURIComponent('/merchant/redeem')}`}
+                  className="font-semibold underline"
+                >
+                  {t('signInAgain')}
+                </Link>
+              </>
+            )}
+          </span>
         </p>
       )}
 
       {voucher && (
         <section
           aria-labelledby="voucher-result"
-          className="grid max-w-xl gap-3 rounded-card border border-border bg-surface p-5"
+          className="grid max-w-xl gap-3 rounded-card-ui border border-border bg-surface p-5"
         >
           <h2 id="voucher-result" className="font-semibold">
             {pickText(voucher.deal.title, locale)}
@@ -209,8 +296,8 @@ export function VoucherRedeemPanel({
             <button
               type="button"
               onClick={confirm}
-              disabled={!locationId}
-              className="rounded-control-ui bg-brand px-5 py-4 text-lg font-semibold text-surface"
+              disabled={!locationId || busy}
+              className="rounded-control-ui bg-brand px-5 py-4 text-lead font-semibold text-surface disabled:opacity-60"
             >
               {t('confirm')}
             </button>

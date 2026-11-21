@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 
+import { formatTashkentDateTime } from '@/lib/dates';
+
 type Notification = components['schemas']['Notification'];
 
 /** Redemptions the buyer may not recognise. Reporting one opens a dispute, which holds the merchant's payout. */
@@ -49,9 +51,7 @@ export function BuyerNotifications({ items }: { items: Notification[] }) {
           >
             <span>
               {t('redeemed', { merchant: item.merchant_name })}
-              <span className="ml-2 text-ink-muted">
-                {new Date(item.created_at).toLocaleString()}
-              </span>
+              <span className="ml-2 text-ink-muted">{formatTashkentDateTime(item.created_at)}</span>
             </span>
             {item.voucher_id && (
               <button

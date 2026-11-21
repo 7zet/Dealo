@@ -135,21 +135,6 @@
   will-change: transform;
 }
 
-/* Hero neon streaks */
-.hero-streaks path {
-  fill: none;
-  stroke-linecap: round;
-}
-@keyframes streak-flow {
-  to {
-    stroke-dashoffset: -400;
-  }
-}
-.hero-streaks .flow {
-  stroke-dasharray: 60 340;
-  animation: streak-flow 6s linear infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .neon-card {
     transition: none;
@@ -197,4 +182,10 @@
   .deal-rail {
     --rail-count: 5;
   }
+}
+
+/* Long feeds: the browser skips layout and paint for cards far outside the viewport. */
+.deal-grid--long > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 26rem;
 }

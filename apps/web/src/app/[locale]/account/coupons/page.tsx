@@ -38,7 +38,10 @@ export default async function CouponsPage({
     accountGet<VoucherPage>(`/me/vouchers?status=${API_STATUS[tab]}`),
   );
 
-  const notifications = await accountGet<NotificationList>('/me/notifications');
+  // Notifications are secondary: if they fail to load, the coupons still render.
+  const notifications = await accountGet<NotificationList>('/me/notifications').catch(
+    (): NotificationList => ({ items: [] }),
+  );
 
   return (
     <AccountShell section="coupons">
@@ -72,7 +75,7 @@ export default async function CouponsPage({
                 className="grid gap-1 rounded-card border border-border bg-surface p-4 hover:border-brand"
               >
                 <span className="font-semibold text-ink">
-                  {pickText(voucher.deal.title, locale)}
+                  {pickText(voucher.title_snapshot ?? voucher.deal.title, locale)}
                 </span>
                 <span className="text-sm text-ink-muted">{voucher.merchant.display_name}</span>
                 <span className="font-mono text-sm text-ink">{voucher.code}</span>
@@ -83,7 +86,8 @@ export default async function CouponsPage({
                 </span>
                 <span className="text-sm font-semibold text-ink">
                   {formatMoney(
-                    voucher.option.deal_price.amount,
+                    // The price paid at purchase (AT-06), not today's price of the deal.
+                    (voucher.unit_price_snapshot ?? voucher.option.deal_price).amount,
                     locale as Parameters<typeof formatMoney>[1],
                     'UZS',
                   )}

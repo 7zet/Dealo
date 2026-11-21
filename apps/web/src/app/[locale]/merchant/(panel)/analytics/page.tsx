@@ -1,9 +1,19 @@
 import type { components } from '@grupon/api-client';
+import type { Locale } from '@grupon/config';
 import { formatMoney } from '@grupon/ui';
-import type { Currency, Locale } from '@grupon/config';
+import { BarChart3, Percent, Ticket, TicketCheck, Wallet } from 'lucide-react';
 import { getFormatter, getTranslations } from 'next-intl/server';
 
+import {
+  EmptyState,
+  fieldClass,
+  KpiCard,
+  PageHeader,
+  Panel,
+  primaryButtonClass,
+} from '@/components/merchant-ui';
 import { accountGet, loadForVisitor } from '@/lib/account-api';
+import { requirePanelPermission } from '@/lib/merchant-session';
 
 type MerchantAnalytics = components['schemas']['MerchantAnalytics'];
 
@@ -19,6 +29,7 @@ export default async function AnalyticsPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const { locale } = await params;
+  await requirePanelPermission('workspace.view', '/merchant/analytics');
   const query = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
   const to = query.to && DATE.test(query.to) ? query.to : today;
@@ -26,86 +37,78 @@ export default async function AnalyticsPage({
     query.from && DATE.test(query.from)
       ? query.from
       : new Date(Date.parse(to) - 29 * DAY_MS).toISOString().slice(0, 10);
-  const t = await getTranslations('MerchantPanel');
-  const format = await getFormatter();
-  const data = await loadForVisitor(locale, `/${locale}/merchant/analytics`, () =>
+  const [t, ui, format] = await Promise.all([
+    getTranslations('MerchantPanel'),
+    getTranslations('MerchantUI'),
+    getFormatter(),
+  ]);
+  const data = await loadForVisitor(locale, `/merchant/analytics?from=${from}&to=${to}`, () =>
     accountGet<MerchantAnalytics>(`/merchant/analytics?from=${from}&to=${to}`),
   );
-  const currency: Currency = 'UZS';
+  const money = (amount: number) => formatMoney(amount, locale as Locale, 'UZS');
   const peak = Math.max(1, ...data.sales.map((point) => point.value));
   const percent = Math.round(data.redemption_rate * 100);
 
   return (
-    <div className="grid gap-8">
-      <h1 className="text-title font-bold">{t('analyticsTitle')}</h1>
-      <form className="flex flex-wrap items-end gap-4 text-sm" method="get">
-        <label className="grid gap-2 font-semibold">
-          {t('fromDate')}
-          <input
-            type="date"
-            name="from"
-            defaultValue={from}
-            className="rounded-control-ui border border-border bg-surface px-4 py-3"
-          />
-        </label>
-        <label className="grid gap-2 font-semibold">
-          {t('toDate')}
-          <input
-            type="date"
-            name="to"
-            defaultValue={to}
-            className="rounded-control-ui border border-border bg-surface px-4 py-3"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
-        >
-          {t('apply')}
-        </button>
-      </form>
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          label={t('grossSales')}
-          value={formatMoney(data.gross_sales.amount, locale as Locale, currency)}
+    <>
+      <PageHeader
+        title={t('analyticsTitle')}
+        description={ui('analyticsSubtitle')}
+        actions={
+          <form className="flex flex-wrap items-end gap-2" method="get">
+            <label className="grid gap-1 text-small font-semibold">
+              {t('fromDate')}
+              <input type="date" name="from" defaultValue={from} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-small font-semibold">
+              {t('toDate')}
+              <input type="date" name="to" defaultValue={to} className={fieldClass} />
+            </label>
+            <button type="submit" className={primaryButtonClass}>
+              {t('apply')}
+            </button>
+          </form>
+        }
+      />
+      <dl className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <KpiCard label={t('grossSales')} value={money(data.gross_sales.amount)} icon={Wallet} />
+        <KpiCard
+          label={t('vouchersSold')}
+          value={format.number(data.vouchers_sold)}
+          icon={Ticket}
         />
-        <Kpi label={t('vouchersSold')} value={String(data.vouchers_sold)} />
-        <Kpi label={t('vouchersRedeemed')} value={String(data.vouchers_redeemed)} />
-        <Kpi label={t('redemptionRate')} value={`${percent}%`} />
+        <KpiCard
+          label={t('vouchersRedeemed')}
+          value={format.number(data.vouchers_redeemed)}
+          icon={TicketCheck}
+        />
+        <KpiCard label={t('redemptionRate')} value={`${percent}%`} icon={Percent} />
       </dl>
-      <section className="grid gap-3">
-        <h2 className="font-semibold">{t('salesByDay')}</h2>
+      <Panel title={t('salesByDay')} titleId="sales-by-day">
         {data.sales.length === 0 ? (
-          <p className="text-ink-muted">{t('analyticsEmpty')}</p>
+          <EmptyState icon={BarChart3} title={t('analyticsEmpty')} />
         ) : (
-          <ul className="grid gap-2">
+          <ul className="grid gap-2.5">
             {data.sales.map((point) => (
               <li
                 key={point.date}
-                className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm"
+                className="grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-3 text-small"
               >
                 <span className="text-ink-muted">
                   {format.dateTime(new Date(point.date), { dateStyle: 'medium' })}
                 </span>
-                <span
-                  className="h-3 rounded-full bg-brand"
-                  style={{ width: `${Math.round((point.value / peak) * 100)}%` }}
-                />
-                <span>{formatMoney(point.value, locale as Locale, currency)}</span>
+                <span className="h-2.5 overflow-hidden rounded-round-ui bg-page">
+                  <span
+                    className="block h-full rounded-round-ui bg-brand"
+                    style={{ width: `${Math.max(1, Math.round((point.value / peak) * 100))}%` }}
+                  />
+                </span>
+                <span className="tabular-nums text-ink">{money(point.value)}</span>
               </li>
             ))}
           </ul>
         )}
-      </section>
-    </div>
-  );
-}
-
-function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-card border border-border p-5">
-      <dt className="text-sm text-ink-muted">{label}</dt>
-      <dd className="mt-2 text-title font-bold">{value}</dd>
-    </div>
+      </Panel>
+    </>
   );
 }

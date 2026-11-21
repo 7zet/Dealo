@@ -1,11 +1,12 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import type { Locale } from '@grupon/config';
+import { useLocale, useTranslations } from 'next-intl';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 
 import type { MediaAsset } from '@/components/merchant-media-library';
-import { tiyinFromSom } from '@grupon/ui';
+import { formatMoney, tiyinFromSom } from '@grupon/ui';
 
 type Localized = { uz: string; ru: string; en: string };
 type Location = { id: string; label: string };
@@ -28,7 +29,9 @@ type Draft = {
   redemptionMethod: 'qr' | 'code' | 'qr_or_code';
   redemptionInstructions: Localized;
   maxPerUser: number;
-  options: { title: Localized; originalPrice: number; dealPrice: number; stock: number }[];
+  // Prices (so'm) and stock stay as typed text so a field can be empty instead of a "0" the merchant
+  // has to delete first.
+  options: DraftOption[];
   mediaIds: string[];
   locationIds: string[];
   startsAt: string;
@@ -36,7 +39,10 @@ type Draft = {
   validDays: number;
 };
 
+type DraftOption = { title: Localized; originalPrice: string; dealPrice: string; stock: string };
+
 const empty: Localized = { uz: '', ru: '', en: '' };
+const emptyOption: DraftOption = { title: empty, originalPrice: '', dealPrice: '', stock: '' };
 const initial: Draft = {
   slug: '',
   categoryId: '',
@@ -49,7 +55,7 @@ const initial: Draft = {
   redemptionMethod: 'qr_or_code',
   redemptionInstructions: empty,
   maxPerUser: 1,
-  options: [{ title: empty, originalPrice: 0, dealPrice: 0, stock: 0 }],
+  options: [emptyOption],
   mediaIds: [],
   locationIds: [],
   startsAt: '',
@@ -65,6 +71,7 @@ const STEPS = [
   'stepSchedule',
   'stepReview',
 ] as const;
+const MEDIA_STEP = STEPS.indexOf('stepMedia');
 const inputClass = 'rounded-control-ui border border-border bg-surface px-4 py-3 text-ink';
 
 function localized(text: Localized) {
@@ -75,9 +82,21 @@ function filled(text: Localized) {
   return [text.uz, text.ru, text.en].every((value) => value.trim() !== '');
 }
 
+/** A whole non-negative number typed into a field, or null when the field is empty or not a number. */
+function whole(value: string): number | null {
+  const trimmed = value.trim();
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+/** The text in the merchant's own language first, then the others. */
+function inLocale(text: Localized, locale: Locale) {
+  return text[locale].trim() || text.uz.trim() || text.ru.trim() || text.en.trim();
+}
+
 /** Returns the first problem in the current step as a translation key, or null when the step is complete. */
-function stepProblem(step: number, draft: Draft): string | null {
+export function stepProblem(step: number, draft: Draft): string | null {
   if (step === 0) {
+    if (draft.slug.trim() === '') return 'slugRequired';
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.slug)) return 'invalidSlug';
     if (!draft.categoryId || !draft.subcategoryId) return 'required';
     if (!filled(draft.title) || !filled(draft.shortDescription) || !filled(draft.description))
@@ -85,12 +104,15 @@ function stepProblem(step: number, draft: Draft): string | null {
   }
   if (step === 1) {
     if (draft.options.length === 0) return 'optionsRequired';
-    if (
-      draft.options.some(
-        (o) => !filled(o.title) || o.dealPrice < 1 || o.dealPrice > o.originalPrice,
-      )
-    )
-      return 'price';
+    if (draft.options.some((o) => !filled(o.title))) return 'required';
+    const priced = draft.options.map((o) => ({
+      original: whole(o.originalPrice),
+      deal: whole(o.dealPrice),
+      stock: whole(o.stock),
+    }));
+    if (priced.some((o) => !o.original || !o.deal)) return 'priceRequired';
+    if (priced.some((o) => (o.deal ?? 0) > (o.original ?? 0))) return 'price';
+    if (priced.some((o) => o.stock === null)) return 'stockRequired';
   }
   if (step === 2 && (draft.mediaIds.length < 3 || draft.mediaIds.length > 8)) return 'mediaCount';
   if (step === 3) {
@@ -128,9 +150,9 @@ function toBody(draft: Draft, media: MediaAsset[]) {
     location_ids: draft.locationIds,
     options: draft.options.map((o, index) => ({
       title: localized(o.title),
-      original_price: tiyinFromSom(o.originalPrice),
-      deal_price: tiyinFromSom(o.dealPrice),
-      stock_total: o.stock,
+      original_price: tiyinFromSom(whole(o.originalPrice) ?? 0),
+      deal_price: tiyinFromSom(whole(o.dealPrice) ?? 0),
+      stock_total: whole(o.stock) ?? 0,
       sort_order: index,
       is_active: true,
     })),
@@ -156,7 +178,7 @@ function LocalizedFields({
 }) {
   const t = useTranslations('Deals');
   return (
-    <fieldset className="grid gap-2 rounded-card border border-border p-4">
+    <fieldset className="grid gap-2 rounded-card-ui border border-border p-4">
       <legend className="px-1 text-sm font-semibold">{label}</legend>
       {(['uz', 'ru', 'en'] as const).map((locale) => (
         <label key={locale} className="grid gap-1 text-sm">
@@ -172,51 +194,96 @@ function LocalizedFields({
   );
 }
 
+export type { Draft as DealDraft };
+export { initial as initialDealDraft };
+
 export function DealWizard({ categories, locations, media }: Props) {
   const t = useTranslations('Deals');
+  const locale = useLocale() as Locale;
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(initial);
   const [problem, setProblem] = useState<string | null>(null);
+  const [success, setSuccess] = useState<'submitted' | 'saved' | null>(null);
   const [busy, setBusy] = useState(false);
+  // The deal is created once. A failed submit keeps its id, so a retry only submits and never creates
+  // a second copy.
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [assets, setAssets] = useState<MediaAsset[]>(media);
+  const [mediaStale, setMediaStale] = useState(false);
 
   const subcategories = categories.find((c) => c.id === draft.categoryId)?.subcategories ?? [];
+  const done = success !== null;
+  const firstOption = draft.options[0];
+  const previewOriginal = firstOption ? whole(firstOption.originalPrice) : null;
+  const previewDeal = firstOption ? whole(firstOption.dealPrice) : null;
+  const previewPrice =
+    previewOriginal && previewDeal ? { original: previewOriginal, deal: previewDeal } : null;
+
+  /** Re-reads the media library, for photos uploaded on the media page while the wizard is open. */
+  async function reloadMedia() {
+    setMediaStale(false);
+    const response = await fetch('/api/bff/merchant/media').catch(() => null);
+    if (!response?.ok) return setMediaStale(true);
+    const list = (await response.json()) as { items: MediaAsset[] };
+    setAssets(list.items);
+    // A photo deleted on the media page drops out of the selection.
+    setDraft((current) => ({
+      ...current,
+      mediaIds: current.mediaIds.filter((id) => list.items.some((asset) => asset.id === id)),
+    }));
+  }
 
   function update(patch: Partial<Draft>) {
+    setProblem(null);
     setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  /** Moves to a step. Entering the photo step re-reads the library, so new uploads show up. */
+  function go(target: number) {
+    setProblem(null);
+    setStep(target);
+    if (target === MEDIA_STEP) void reloadMedia();
   }
 
   function next() {
     const issue = stepProblem(step, draft);
     setProblem(issue);
-    if (!issue) setStep((current) => Math.min(current + 1, STEPS.length - 1));
+    if (!issue) go(Math.min(step + 1, STEPS.length - 1));
   }
 
   async function save(submit: boolean) {
+    if (busy || done) return;
     const issue = [0, 1, 2, 3, 4].map((s) => stepProblem(s, draft)).find(Boolean) ?? null;
     setProblem(issue);
     if (issue) return;
     setBusy(true);
-    const created = await fetch('/api/bff/merchant/deals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(toBody(draft, media)),
-    });
-    if (!created.ok) {
-      setBusy(false);
-      return setProblem('errorGeneric');
+    let id = createdId;
+    if (!id) {
+      const created = await fetch('/api/bff/merchant/deals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toBody(draft, assets)),
+      });
+      if (!created.ok) {
+        setBusy(false);
+        const body = (await created.json().catch(() => ({}))) as { code?: string };
+        return setProblem(body.code === 'slug_taken' ? 'slugTaken' : 'errorGeneric');
+      }
+      id = ((await created.json()) as { id: string }).id;
+      setCreatedId(id);
     }
-    const deal = (await created.json()) as { id: string };
     if (submit) {
-      const response = await fetch(`/api/bff/merchant/deals/${deal.id}/submit`, { method: 'POST' });
+      const response = await fetch(`/api/bff/merchant/deals/${id}/submit`, { method: 'POST' });
       if (!response.ok) {
         setBusy(false);
-        return setProblem('errorGeneric');
+        return setProblem('submitFailed');
       }
     }
-    setBusy(false);
+    // The buttons stay disabled from here on: the deal exists, so a second click must not resend it.
+    setSuccess(submit ? 'submitted' : 'saved');
+    router.push('/merchant/deals');
     router.refresh();
-    setProblem(submit ? 'submitted' : 'saved');
   }
 
   return (
@@ -295,7 +362,7 @@ export function DealWizard({ categories, locations, media }: Props) {
         {step === 1 && (
           <div className="grid max-w-xl gap-4">
             {draft.options.map((option, index) => (
-              <div key={index} className="grid gap-3 rounded-card border border-border p-4">
+              <div key={index} className="grid gap-3 rounded-card-ui border border-border p-4">
                 <LocalizedFields
                   label={t('optionTitle')}
                   value={option.title}
@@ -308,14 +375,14 @@ export function DealWizard({ categories, locations, media }: Props) {
                 <label className="grid gap-1 text-sm">
                   {t('originalPrice')}
                   <input
-                    type="number"
-                    min={1}
+                    type="text"
+                    inputMode="numeric"
                     className={inputClass}
                     value={option.originalPrice}
                     onChange={(e) =>
                       update({
                         options: draft.options.map((o, i) =>
-                          i === index ? { ...o, originalPrice: Number(e.target.value) } : o,
+                          i === index ? { ...o, originalPrice: e.target.value } : o,
                         ),
                       })
                     }
@@ -324,14 +391,14 @@ export function DealWizard({ categories, locations, media }: Props) {
                 <label className="grid gap-1 text-sm">
                   {t('dealPrice')}
                   <input
-                    type="number"
-                    min={1}
+                    type="text"
+                    inputMode="numeric"
                     className={inputClass}
                     value={option.dealPrice}
                     onChange={(e) =>
                       update({
                         options: draft.options.map((o, i) =>
-                          i === index ? { ...o, dealPrice: Number(e.target.value) } : o,
+                          i === index ? { ...o, dealPrice: e.target.value } : o,
                         ),
                       })
                     }
@@ -340,14 +407,14 @@ export function DealWizard({ categories, locations, media }: Props) {
                 <label className="grid gap-1 text-sm">
                   {t('stock')}
                   <input
-                    type="number"
-                    min={0}
+                    type="text"
+                    inputMode="numeric"
                     className={inputClass}
                     value={option.stock}
                     onChange={(e) =>
                       update({
                         options: draft.options.map((o, i) =>
-                          i === index ? { ...o, stock: Number(e.target.value) } : o,
+                          i === index ? { ...o, stock: e.target.value } : o,
                         ),
                       })
                     }
@@ -360,10 +427,7 @@ export function DealWizard({ categories, locations, media }: Props) {
               className="w-fit font-semibold text-brand"
               onClick={() =>
                 update({
-                  options: [
-                    ...draft.options,
-                    { title: empty, originalPrice: 0, dealPrice: 0, stock: 0 },
-                  ],
+                  options: [...draft.options, emptyOption],
                 })
               }
             >
@@ -375,11 +439,32 @@ export function DealWizard({ categories, locations, media }: Props) {
         {step === 2 && (
           <div className="grid gap-4">
             <p className="text-sm text-ink-muted">{t('mediaPick')}</p>
-            {media.length === 0 ? (
+            <div className="flex flex-wrap gap-3 text-sm">
+              <Link
+                href="/merchant/media"
+                target="_blank"
+                className="font-semibold text-brand underline-offset-2 hover:underline"
+              >
+                {t('mediaOpenLibrary')}
+              </Link>
+              <button
+                type="button"
+                onClick={() => void reloadMedia()}
+                className="font-semibold text-brand underline-offset-2 hover:underline"
+              >
+                {t('mediaReload')}
+              </button>
+            </div>
+            {mediaStale && (
+              <p role="alert" className="text-sm text-error">
+                {t('errorGeneric')}
+              </p>
+            )}
+            {assets.length === 0 ? (
               <p className="text-ink-muted">{t('mediaEmpty')}</p>
             ) : (
               <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {media.map((asset) => {
+                {assets.map((asset) => {
                   const selected = draft.mediaIds.includes(asset.id);
                   return (
                     <li key={asset.id}>
@@ -513,13 +598,24 @@ export function DealWizard({ categories, locations, media }: Props) {
         )}
 
         {step === 5 && (
-          <div className="grid gap-2 text-sm">
+          <div className="grid gap-3 text-sm">
             <p>{t('reviewHint')}</p>
-            <p>{draft.title.en || draft.title.uz}</p>
-            <p>
-              {draft.options.length} · {draft.mediaIds.length} · {draft.locationIds.length}
-            </p>
+            <p className="font-semibold text-ink">{inLocale(draft.title, locale)}</p>
+            <dl className="grid w-fit grid-cols-[auto_auto] gap-x-6 gap-y-1">
+              <dt className="text-ink-muted">{t('reviewOptions')}</dt>
+              <dd className="font-semibold tabular-nums">{draft.options.length}</dd>
+              <dt className="text-ink-muted">{t('reviewPhotos')}</dt>
+              <dd className="font-semibold tabular-nums">{draft.mediaIds.length}</dd>
+              <dt className="text-ink-muted">{t('reviewLocations')}</dt>
+              <dd className="font-semibold tabular-nums">{draft.locationIds.length}</dd>
+            </dl>
           </div>
+        )}
+
+        {success && (
+          <p role="status" className="rounded-control-ui bg-save-tint p-3 font-semibold text-save">
+            {t(success)}
+          </p>
         )}
 
         {problem && (
@@ -536,7 +632,8 @@ export function DealWizard({ categories, locations, media }: Props) {
           {step > 0 && (
             <button
               type="button"
-              onClick={() => setStep(step - 1)}
+              disabled={busy || done}
+              onClick={() => go(step - 1)}
               className="rounded-control-ui border border-border px-5 py-3"
             >
               {t('back')}
@@ -555,17 +652,17 @@ export function DealWizard({ categories, locations, media }: Props) {
             <>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || done}
                 onClick={() => save(false)}
-                className="rounded-control-ui border border-border px-5 py-3"
+                className="rounded-control-ui border border-border px-5 py-3 disabled:opacity-60"
               >
                 {t('saveDraft')}
               </button>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || done}
                 onClick={() => save(true)}
-                className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+                className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60"
               >
                 {t('submitReview')}
               </button>
@@ -576,17 +673,19 @@ export function DealWizard({ categories, locations, media }: Props) {
 
       <aside
         aria-label={t('previewTitle')}
-        className="grid h-fit gap-3 rounded-card border border-border bg-surface p-4"
+        className="grid h-fit gap-3 rounded-card-ui border border-border bg-surface p-4"
       >
         <h2 className="font-semibold">{t('previewTitle')}</h2>
-        <p className="font-semibold">{draft.title.en || draft.title.uz || '—'}</p>
-        <p className="text-sm text-ink-muted">
-          {draft.shortDescription.en || draft.shortDescription.uz}
-        </p>
-        {draft.options[0] && draft.options[0].dealPrice > 0 && (
+        <p className="font-semibold">{inLocale(draft.title, locale) || '—'}</p>
+        <p className="text-sm text-ink-muted">{inLocale(draft.shortDescription, locale)}</p>
+        {previewPrice && (
           <p className="text-sm">
-            <span className="text-ink-muted line-through">{draft.options[0].originalPrice}</span>{' '}
-            <span className="font-bold text-ink">{draft.options[0].dealPrice}</span>
+            <span className="text-ink-muted line-through">
+              {formatMoney(tiyinFromSom(previewPrice.original), locale, 'UZS')}
+            </span>{' '}
+            <span className="font-bold text-ink">
+              {formatMoney(tiyinFromSom(previewPrice.deal), locale, 'UZS')}
+            </span>
           </p>
         )}
       </aside>

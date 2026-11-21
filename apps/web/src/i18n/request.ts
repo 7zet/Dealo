@@ -2,6 +2,8 @@ import { isLocale } from '@grupon/config';
 import { getMessages } from '@grupon/i18n';
 import { getRequestConfig } from 'next-intl/server';
 
+import { APP_TIME_ZONE } from '@/lib/dates';
+
 import { routing } from './routing';
 
 export default getRequestConfig(async ({ requestLocale }) => {
@@ -12,5 +14,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
   return {
     locale,
     messages: getMessages(locale),
+    // Every date (voucher expiry, order dates) is shown in Tashkent time, not the server's zone.
+    timeZone: APP_TIME_ZONE,
   };
 });

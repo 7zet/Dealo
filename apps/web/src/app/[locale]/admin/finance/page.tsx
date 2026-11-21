@@ -1,15 +1,12 @@
 import type { components } from '@grupon/api-client';
 import { formatMoney } from '@grupon/ui';
 import { getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 
 import { FinanceActions } from '@/components/finance-actions';
-import { accountGet, accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { accountGet } from '@/lib/account-api';
+import { requireAdminArea } from '@/lib/admin-session';
 
-type User = components['schemas']['User'];
 type Queue = components['schemas']['FinanceQueue'];
-
-const FINANCE_ROLES = ['superadmin', 'finance', 'support'];
 
 /** Translation keys for each status, written out so the message types stay exact. */
 const STATUS_KEYS = {
@@ -29,10 +26,7 @@ const STATUS_KEYS = {
 export default async function FinancePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const t = await getTranslations('AdminFinance');
-  const user = await loadForVisitor(locale, `/${locale}/admin/finance`, () =>
-    accountGetOrNull<User>('/me'),
-  );
-  if (!user?.roles.some((role) => FINANCE_ROLES.includes(role))) notFound();
+  const user = await requireAdminArea('finance', locale);
   const queue = await accountGet<Queue>('/admin/finance/queue');
   const canSupport = user.roles.includes('support') || user.roles.includes('superadmin');
   const canResolve = user.roles.includes('finance') || user.roles.includes('superadmin');

@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useRouter } from '@/i18n/navigation';
 
+import { ConfirmRemoveButton } from './merchant-confirm';
+
 export type MediaAsset = {
   id: string;
   url: string;
@@ -83,7 +85,7 @@ function ImageCropper({
   }
 
   return (
-    <div className="grid max-w-md gap-4 rounded-card border border-border bg-surface p-4">
+    <div className="grid max-w-md gap-4 rounded-card-ui border border-border bg-surface p-4">
       <p className="text-sm text-ink-muted">{t('cropHint')}</p>
       <canvas
         ref={canvasRef}
@@ -147,7 +149,13 @@ function ImageCropper({
   );
 }
 
-export function MerchantMediaLibrary({ assets }: { assets: MediaAsset[] }) {
+export function MerchantMediaLibrary({
+  assets,
+  canEdit = true,
+}: {
+  assets: MediaAsset[];
+  canEdit?: boolean;
+}) {
   const t = useTranslations('Deals');
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -197,7 +205,7 @@ export function MerchantMediaLibrary({ assets }: { assets: MediaAsset[] }) {
 
   return (
     <section className="grid gap-6">
-      {pending ? (
+      {!canEdit ? null : pending ? (
         <ImageCropper
           file={pending}
           onCancel={() => setPending(null)}
@@ -237,7 +245,7 @@ export function MerchantMediaLibrary({ assets }: { assets: MediaAsset[] }) {
           {assets.map((asset) => (
             <li
               key={asset.id}
-              className="grid gap-2 rounded-card border border-border bg-surface p-3"
+              className="grid gap-2 rounded-card-ui border border-border bg-surface p-3"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- merchant uploads are served by the API, not optimized */}
               <img
@@ -245,13 +253,14 @@ export function MerchantMediaLibrary({ assets }: { assets: MediaAsset[] }) {
                 alt=""
                 className="aspect-[4/3] w-full rounded-control-ui object-cover"
               />
-              <button
-                type="button"
-                onClick={() => remove(asset.id)}
-                className="text-sm font-semibold text-error"
-              >
-                {t('remove')}
-              </button>
+              {canEdit && (
+                <ConfirmRemoveButton
+                  label={t('remove')}
+                  question={t('mediaRemoveConfirm')}
+                  onConfirm={() => remove(asset.id)}
+                  className="text-sm font-semibold text-error"
+                />
+              )}
             </li>
           ))}
         </ul>

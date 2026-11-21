@@ -1,5 +1,5 @@
 import type { PublicConfig } from '@grupon/api-client';
-import { localized, type Locale } from '@grupon/config';
+import type { Locale } from '@grupon/config';
 import {
   ArrowRight,
   Dumbbell,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { categoryLabel, subcategoryLabel } from '@/lib/catalog-labels';
 
 const icons: Record<string, LucideIcon> = {
   'beauty-and-spas': Sparkles,
@@ -27,7 +28,7 @@ export async function CategoryTiles({
   categories: PublicConfig['categories'];
   locale: Locale;
 }) {
-  const t = await getTranslations('Home');
+  const [t, catalog] = await Promise.all([getTranslations('Home'), getTranslations('Catalog')]);
   const tile =
     'group relative flex min-h-20 items-center justify-between gap-2 rounded-card-ui bg-surface px-4 py-3 text-small sm:min-h-24 sm:gap-3 sm:px-5 sm:py-4 sm:text-body ring-1 ring-border transition duration-300 hover:-translate-y-0.5 hover:ring-neon/50 hover:shadow-[0_14px_36px_-14px_rgb(255_106_0/55%)]';
   return (
@@ -41,7 +42,7 @@ export async function CategoryTiles({
           <div key={category.id} className="group/tile relative">
             <Link className={tile} href={`/tashkent/${category.slug}`}>
               <span className="font-bold leading-snug text-ink">
-                {localized(category.name, locale)}
+                {categoryLabel(catalog, category, locale)}
               </span>
               <span className="relative grid size-11 shrink-0 place-items-center rounded-[0.9rem] sm:size-14 sm:rounded-[1.1rem] bg-gradient-to-br from-[#ff9a3c] to-brand text-surface shadow-[0_8px_24px_-6px_rgb(255_106_0/70%)] transition duration-300 group-hover:rotate-[-6deg] group-hover:scale-110">
                 <Icon className="size-6 sm:size-7" strokeWidth={2.2} />
@@ -56,7 +57,7 @@ export async function CategoryTiles({
                       href={`/tashkent/${category.slug}?subcategory=${sub.slug}`}
                       key={sub.id}
                     >
-                      {localized(sub.name, locale)}
+                      {subcategoryLabel(catalog, category.slug, sub, locale)}
                     </Link>
                   ))}
                 </div>

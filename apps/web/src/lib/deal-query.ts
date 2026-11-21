@@ -62,3 +62,19 @@ export function buildDealQuery({
 
   return query;
 }
+
+/** URL params that narrow a listing; "Clear filters" removes exactly these (and the page). */
+export const LISTING_FILTER_KEYS = ['subcategory', 'rating', 'endingSoon', 'sort'] as const;
+
+/** How many pages one listing response shows at most after repeated "Load more". */
+export const LISTING_MAX_PAGES = 10;
+
+/**
+ * The API pages a listing shows for `?page=N`: every page up to N, so "Load more" appends to the
+ * list. Past LISTING_MAX_PAGES the oldest pages drop off to keep the response bounded.
+ */
+export function listingPageWindow(page: string | null | undefined): number[] {
+  const last = Math.max(1, Number(positiveInt(page ?? undefined) ?? 1));
+  const first = Math.max(1, last - LISTING_MAX_PAGES + 1);
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+}

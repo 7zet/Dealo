@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
@@ -26,13 +26,36 @@ describe('public marketplace components', () => {
     );
     expect(screen.getAllByText(/UZS/).length).toBeGreaterThanOrEqual(2);
   });
+  it('hides the rating on a card until the deal has a review', () => {
+    const deal = { ...deals[0]!, rating_avg: 0, rating_count: 0, sold_count: 722 };
+    render(<DealCard deal={deal} locale="en" currency="UZS" />, { wrapper: Wrapper });
+    expect(screen.queryByText('0.0')).toBeNull();
+    expect(screen.getByText('722+ sold')).toBeInTheDocument();
+  });
   it('updates purchase quantity without exceeding the selected option', async () => {
     const user = userEvent.setup();
     render(<PurchasePanel deal={deals[0]!} locale="en" currency="UZS" />, { wrapper: Wrapper });
-    const plus = screen.getByRole('button', { name: '+' });
+    const plus = screen.getByRole('button', { name: 'Increase quantity' });
     await user.click(plus);
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Buy now' })).toBeEnabled();
+  });
+  it('names each option radio after the option and explains the quantity limit', async () => {
+    const user = userEvent.setup();
+    const deal = { ...deals[0]!, max_per_user: 2 };
+    const { container } = render(<PurchasePanel deal={deal} locale="en" currency="UZS" />, {
+      wrapper: Wrapper,
+    });
+    const panel = within(container);
+    const radio = panel.getByRole('radio', { name: 'Premium package' });
+    expect(radio).toHaveAttribute('value', deal.options[1]!.id);
+    expect(panel.getByRole('radio', { name: 'Standard package' })).toBeChecked();
+
+    const plus = panel.getByRole('button', { name: 'Increase quantity' });
+    expect(panel.queryByText('Up to 2 per customer')).not.toBeInTheDocument();
+    await user.click(plus);
+    expect(plus).toBeDisabled();
+    expect(plus).toHaveAccessibleDescription('Up to 2 per customer');
   });
   it('exposes listing filters and every required sort', () => {
     render(<ListingControls subcategories={[{ slug: 'massage', label: 'Massage' }]} />, {

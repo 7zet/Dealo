@@ -6,7 +6,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { useCart } from '@/stores/cart';
+import { useBuyNow } from '@/stores/buy-now';
 type Deal = components['schemas']['Deal'];
 
 export function PurchasePanel({
@@ -20,23 +20,33 @@ export function PurchasePanel({
 }) {
   const t = useTranslations('Deal');
   const router = useRouter();
-  const add = useCart((state) => state.add);
+  const select = useBuyNow((state) => state.select);
   const [selected, setSelected] = useState(deal.options[0]!.id);
   const [quantity, setQuantity] = useState(1);
   const option = deal.options.find((item) => item.id === selected)!;
   const remaining = option.stock_total - option.stock_sold - option.stock_reserved;
   const unavailable = deal.status !== 'active' || remaining < 1;
   const savings = (option.original_price.amount - option.deal_price.amount) * quantity;
-  const cartLine = () => ({
-    optionId: option.id,
-    quantity,
-    title: localized(option.title, locale),
-    dealSlug: deal.slug,
-    unitPrice: option.deal_price.amount,
-    originalPrice: option.original_price.amount,
-  });
+  // The stepper stops at the lower of the per-customer limit and the stock left; the hint says which.
+  const maxQuantity = Math.max(1, Math.min(deal.max_per_user, remaining));
+  const limitReason =
+    unavailable || quantity < maxQuantity
+      ? null
+      : deal.max_per_user <= remaining
+        ? t('perCustomerLimit', { count: deal.max_per_user })
+        : t('stockLimit', { count: remaining });
   const buy = () => {
-    add(cartLine());
+    // Only the option chosen here goes to checkout; any earlier selection is replaced.
+    select([
+      {
+        optionId: option.id,
+        quantity: Math.min(quantity, maxQuantity),
+        title: localized(option.title, locale),
+        dealSlug: deal.slug,
+        unitPrice: option.deal_price.amount,
+        originalPrice: option.original_price.amount,
+      },
+    ]);
     router.push('/checkout');
   };
 
@@ -54,10 +64,16 @@ export function PurchasePanel({
                 <input
                   className="mr-2"
                   type="radio"
+                  name={`deal-option-${deal.id}`}
+                  value={entry.id}
+                  aria-labelledby={`deal-option-${entry.id}`}
                   checked={selected === entry.id}
-                  onChange={() => setSelected(entry.id)}
+                  onChange={() => {
+                    setSelected(entry.id);
+                    setQuantity(1);
+                  }}
                 />
-                {localized(entry.title, locale)}
+                <span id={`deal-option-${entry.id}`}>{localized(entry.title, locale)}</span>
               </span>
               <strong className="tabular-nums">
                 {formatMoney(entry.deal_price.amount, locale, currency)}
@@ -100,7 +116,7 @@ export function PurchasePanel({
         <span className="text-small font-semibold">{t('quantity')}</span>
         <div className="flex items-center rounded-control-ui border">
           <button
-            aria-label="-"
+            aria-label={t('decreaseQuantity')}
             className="p-2"
             disabled={quantity <= 1}
             onClick={() => setQuantity((value) => value - 1)}
@@ -110,9 +126,10 @@ export function PurchasePanel({
           </button>
           <span className="min-w-8 text-center tabular-nums">{quantity}</span>
           <button
-            aria-label="+"
+            aria-label={t('increaseQuantity')}
+            aria-describedby={limitReason ? 'quantity-limit' : undefined}
             className="p-2"
-            disabled={quantity >= Math.min(deal.max_per_user, remaining)}
+            disabled={quantity >= maxQuantity}
             onClick={() => setQuantity((value) => value + 1)}
             type="button"
           >
@@ -120,6 +137,11 @@ export function PurchasePanel({
           </button>
         </div>
       </div>
+      {limitReason && (
+        <p id="quantity-limit" className="mt-1 text-right text-small text-ink-muted">
+          {limitReason}
+        </p>
+      )}
     </aside>
   );
 }

@@ -2,33 +2,29 @@ import type { components } from '@grupon/api-client';
 import { getTranslations } from 'next-intl/server';
 
 import { BusinessForm, LocationsPanel } from '@/components/merchant-business';
-import { accountGet, accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { PageHeader, Panel } from '@/components/merchant-ui';
+import { accountGet, loadForVisitor } from '@/lib/account-api';
 import { pickText } from '@/lib/localized';
+import { requirePanelPermission } from '@/lib/merchant-session';
 
 type Merchant = components['schemas']['Merchant'];
 type Location = components['schemas']['MerchantLocation'];
 type LocationList = components['schemas']['LocationList'];
 type Config = components['schemas']['PublicConfig'];
-type User = components['schemas']['User'];
 
 export default async function BusinessPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const t = await getTranslations('Panel');
-  const [business, list, config, user] = await loadForVisitor(
-    locale,
-    `/${locale}/merchant/business`,
-    () =>
-      Promise.all([
-        accountGet<Merchant>('/merchant/business'),
-        accountGet<LocationList>('/merchant/locations'),
-        accountGet<Config>('/config'),
-        accountGetOrNull<User>('/me'),
-      ]),
+  const access = await requirePanelPermission('workspace.view', '/merchant/business');
+  const [t, ui] = await Promise.all([getTranslations('Panel'), getTranslations('MerchantUI')]);
+  const [business, list, config] = await loadForVisitor(locale, '/merchant/business', () =>
+    Promise.all([
+      accountGet<Merchant>('/merchant/business'),
+      accountGet<LocationList>('/merchant/locations'),
+      accountGet<Config>('/config'),
+    ]),
   );
-  // The API decides what each role may change; this only hides controls a cashier cannot use.
-  const canEdit = Boolean(
-    user?.roles.some((role) => role === 'merchant_owner' || role === 'merchant_manager'),
-  );
+  // The API decides what each role may change; this only hides controls the membership cannot use.
+  const canEdit = access.can('workspace.edit');
   const cities = config.cities.map((city) => ({
     id: city.id,
     label: pickText(city.name, locale),
@@ -38,12 +34,13 @@ export default async function BusinessPage({ params }: { params: Promise<{ local
   const locations: Location[] = list.items;
 
   return (
-    <div className="grid gap-10">
-      <h1 className="text-title font-bold">{t('businessTitle')}</h1>
-      <section aria-labelledby="profile-title" className="grid gap-4">
-        <h2 id="profile-title" className="font-semibold">
-          {t('profile')}
-        </h2>
+    <>
+      <PageHeader title={t('businessTitle')} description={ui('businessSubtitle')} />
+      <Panel title={t('profile')} titleId="profile-title" bodyClassName="p-5 sm:p-6">
+        <dl className="mb-5 grid gap-1 border-b border-border pb-5 text-small sm:grid-cols-[10rem_1fr]">
+          <dt className="text-ink-muted">{ui('legalName')}</dt>
+          <dd className="font-medium text-ink">{business.legal_name}</dd>
+        </dl>
         <BusinessForm
           business={{
             display_name: business.display_name,
@@ -54,8 +51,8 @@ export default async function BusinessPage({ params }: { params: Promise<{ local
           }}
           canEdit={canEdit}
         />
-      </section>
+      </Panel>
       <LocationsPanel locations={locations} cities={cities} canEdit={canEdit} locale={locale} />
-    </div>
+    </>
   );
 }

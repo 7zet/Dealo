@@ -4,11 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { formatMoney } from '@grupon/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState, useSyncExternalStore } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Link, useRouter } from '@/i18n/navigation';
-import { useCart, type CartItem } from '@/stores/cart';
+import { clearBuyNow, useBuyNow, type BuyNowItem } from '@/stores/buy-now';
 
 type Values = { terms: boolean };
 
@@ -38,11 +38,14 @@ export function CheckoutForm() {
   const t = useTranslations('Checkout');
   const locale = useLocale();
   const router = useRouter();
-  const items = useCart((state) => state.items);
+  const items = useBuyNow((state) => state.items);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // Set once the order exists and the page is navigating to payment, so the cleared selection does
+  // not flash the "nothing selected" state.
+  const [leaving, setLeaving] = useState(false);
 
-  // False during server render and first hydration pass; true once the persisted cart is readable.
+  // False during server render and first hydration pass; true once the stored selection is readable.
   const ready = useSyncExternalStore(
     subscribeNothing,
     () => true,
@@ -53,12 +56,15 @@ export function CheckoutForm() {
     resolver: zodResolver(termsSchema),
     defaultValues: { terms: false },
   });
+  // The pay button stays visibly unavailable until the buyer agrees to the terms.
+  const accepted = useWatch({ control: form.control, name: 'terms' }) === true;
 
   if (!ready) return <p className="text-ink-muted">…</p>;
+  if (leaving) return <p className="text-ink-muted">{t('placing')}</p>;
   if (items.length === 0) {
     return (
       <div className="grid gap-4">
-        <p className="text-ink-muted">{t('emptyCart')}</p>
+        <p className="text-ink-muted">{t('noSelection')}</p>
         <Link href="/" className="font-semibold text-brand">
           {t('backToDeals')}
         </Link>
@@ -77,7 +83,7 @@ export function CheckoutForm() {
   async function submit() {
     setError(null);
     const orderBody = {
-      items: items.map(({ optionId, quantity }: CartItem) => ({
+      items: items.map(({ optionId, quantity }: BuyNowItem) => ({
         deal_option_id: optionId,
         quantity,
       })),
@@ -101,8 +107,12 @@ export function CheckoutForm() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: 'mock', terms_accepted: true }),
     });
+    // The order now holds the selection; forget it so it cannot be bought twice or by another account.
+    setLeaving(true);
+    clearBuyNow();
     if (!payResponse.ok) {
-      setError(t('errorGeneric'));
+      // The order exists: its failed-payment page offers the retry while the reservation lasts.
+      router.push(`/checkout/failed/${order.id}`);
       return;
     }
     const payment = (await payResponse.json()) as { payment_id: string };
@@ -141,10 +151,24 @@ export function CheckoutForm() {
         </div>
         <p className="text-sm text-ink-muted">{t('paymentNote')}</p>
 
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-1" {...form.register('terms')} />
-          <span>{t('terms')}</span>
-        </label>
+        <div className="grid gap-1">
+          <label htmlFor="checkout-terms" className="flex items-start gap-2 text-sm">
+            <input
+              id="checkout-terms"
+              type="checkbox"
+              className="mt-1"
+              aria-labelledby="checkout-terms-label"
+              aria-describedby={accepted ? undefined : 'terms-hint'}
+              {...form.register('terms')}
+            />
+            <span id="checkout-terms-label">{t('terms')}</span>
+          </label>
+          {!accepted && (
+            <p id="terms-hint" className="pl-6 text-sm text-ink-muted">
+              {t('termsHint')}
+            </p>
+          )}
+        </div>
 
         {error && (
           <p
@@ -158,8 +182,14 @@ export function CheckoutForm() {
 
         <button
           type="submit"
-          disabled={form.formState.isSubmitting}
-          className="rounded-control-ui bg-deal px-5 py-3 font-semibold text-surface disabled:opacity-60"
+          disabled={!accepted || form.formState.isSubmitting}
+          aria-disabled={!accepted || form.formState.isSubmitting}
+          aria-describedby={accepted ? undefined : 'terms-hint'}
+          className={
+            accepted
+              ? 'rounded-control-ui bg-deal px-5 py-3 font-semibold text-surface hover:bg-deal-hover disabled:cursor-not-allowed disabled:opacity-60'
+              : 'cursor-not-allowed rounded-control-ui bg-border px-5 py-3 font-semibold text-ink-muted'
+          }
         >
           {form.formState.isSubmitting ? t('placing') : t('placeOrder')}
         </button>

@@ -1,23 +1,17 @@
 import type { components } from '@grupon/api-client';
 import { getFormatter, getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 
-import { accountGet, accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { accountGet } from '@/lib/account-api';
+import { requireAdminArea } from '@/lib/admin-session';
 
 type AuditPage = components['schemas']['AuditLogPage'];
-type User = components['schemas']['User'];
 
 // Only admins and superadmins may read the audit trail; the API enforces it as well.
-const AUDIT_READERS = ['superadmin', 'admin'];
-
 export default async function AuditPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const t = await getTranslations('Reports');
   const format = await getFormatter();
-  const user = await loadForVisitor(locale, `/${locale}/admin/audit`, () =>
-    accountGetOrNull<User>('/me'),
-  );
-  if (!user?.roles.some((role) => AUDIT_READERS.includes(role))) notFound();
+  await requireAdminArea('audit', locale);
   const log = await accountGet<AuditPage>('/admin/audit-logs');
 
   return (

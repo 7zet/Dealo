@@ -8,10 +8,13 @@ export async function DealGrid({
   deals,
   locale,
   currency,
+  emptyAction,
 }: {
   deals: DealSummary[];
   locale: Locale;
   currency: Currency;
+  /** The way out of an empty result, such as clearing the filters of the current listing. */
+  emptyAction?: { href: string; label: string } | undefined;
 }) {
   const t = await getTranslations('Common');
   if (!deals.length)
@@ -19,12 +22,14 @@ export async function DealGrid({
       <div className="rounded-panel-ui border bg-surface px-6 py-16 text-center">
         <h2 className="text-subtitle font-semibold">{t('emptyTitle')}</h2>
         <p className="mt-2 text-ink-muted">{t('emptyText')}</p>
-        <Link
-          className="mt-6 inline-block rounded-control-ui bg-brand px-4 py-3 font-semibold text-surface"
-          href="/"
-        >
-          {t('clearFilters')}
-        </Link>
+        {emptyAction && (
+          <Link
+            className="mt-6 inline-block rounded-control-ui bg-brand px-4 py-3 font-semibold text-surface"
+            href={emptyAction.href}
+          >
+            {emptyAction.label}
+          </Link>
+        )}
       </div>
     );
   return (

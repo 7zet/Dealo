@@ -1,9 +1,25 @@
 import type { Locale } from '@grupon/config';
 import { ArrowRight, BarChart3, QrCode, Store } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
+import { redirect } from 'next/navigation';
+
 import { Link } from '@/i18n/navigation';
+import { getMe } from '@/lib/account-api';
+import { merchantEntryFor } from '@/lib/merchant-access';
+
+/** Signed-in members of a business skip the pitch and open the first panel page they may use. */
+async function memberEntry(): Promise<string | null> {
+  try {
+    return merchantEntryFor(await getMe());
+  } catch {
+    return null;
+  }
+}
+
 export default async function MerchantLanding({ params }: { params: Promise<{ locale: Locale }> }) {
-  await params;
+  const { locale } = await params;
+  const entry = await memberEntry();
+  if (entry) redirect(`/${locale}${entry}`);
   const t = await getTranslations('Merchant');
   const steps = [
     { icon: Store, title: 'step1Title', text: 'step1Text' },

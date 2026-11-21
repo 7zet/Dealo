@@ -1,19 +1,22 @@
 import { publicApi } from '@grupon/api-client';
-import { brandConfig, localized, type Locale } from '@grupon/config';
+import { brandConfig, type Locale } from '@grupon/config';
 import { ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { Suspense } from 'react';
 import { CategoryTiles } from '@/components/category-tiles';
 import { CursorGlow } from '@/components/cursor-glow';
 import { DealCarousel } from '@/components/deal-carousel';
-import { InfiniteFeed } from '@/components/infinite-feed';
+import { DealFeed } from '@/components/deal-feed';
+import { HeroCanvas } from '@/components/hero-canvas';
 import { HeroMotion } from '@/components/hero-motion';
-import { SearchBox } from '@/components/search-box';
+import { ListingSkeleton } from '@/components/listing-skeleton';
 import { SectionHeading } from '@/components/section-heading';
 import { Link } from '@/i18n/navigation';
+import { categoryLabel } from '@/lib/catalog-labels';
+import { FEED_FIRST } from '@/lib/feed';
 import { getCurrency } from '@/lib/preferences';
 
 const RAIL_SIZE = '12';
-const FEED_SIZE = 24;
 
 /** Splits "Great experiences. Better prices." so the second sentence can be highlighted. */
 function splitTitle(title: string): [string, string] {
@@ -24,13 +27,20 @@ function splitTitle(title: string): [string, string] {
 export default async function HomePage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations('Home');
-  const nav = await getTranslations('Navigation');
+  return (
+    <Suspense fallback={<ListingSkeleton />}>
+      <HomeContent locale={locale} />
+    </Suspense>
+  );
+}
+
+async function HomeContent({ locale }: { locale: Locale }) {
+  const [t, catalog] = await Promise.all([getTranslations('Home'), getTranslations('Catalog')]);
   const deals = (params: Record<string, string>) =>
     publicApi.deals(new URLSearchParams({ city: 'tashkent', ...params }));
   const config = await publicApi.config();
   const categories = config.categories.filter((category) => category.searchable);
-  const feedQuery = { city: 'tashkent', sort: 'recommended', page_size: String(FEED_SIZE) };
+  const feedQuery = { city: 'tashkent', sort: 'recommended' };
   const [trending, endingSoon, newest, feed, currency] = await Promise.all([
     Promise.all(
       categories.map((category) =>
@@ -39,50 +49,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
     ),
     deals({ ending_soon: 'true', sort: 'ending_soon', page_size: RAIL_SIZE }),
     deals({ sort: 'newest', page_size: RAIL_SIZE }),
-    publicApi.deals(new URLSearchParams(feedQuery)),
+    publicApi.deals(new URLSearchParams({ ...feedQuery, page_size: String(FEED_FIRST) })),
     getCurrency(),
   ]);
   const [titleLead, titleAccent] = splitTitle(t('title'));
 
   return (
     <>
-      <section className="relative overflow-hidden bg-night text-surface">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-40 -top-40 size-[34rem] rounded-full bg-[radial-gradient(circle,rgb(255_122_26/28%),transparent_65%)]"
-        />
-        <svg
-          aria-hidden
-          className="hero-streaks pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[60%] md:block"
-          viewBox="0 0 800 400"
-          preserveAspectRatio="none"
-        >
-          {[
-            ['#ff6a00', 0],
-            ['#ff8a1f', 14],
-            ['#ffb347', 28],
-            ['#ffd27a', 42],
-          ].map(([color, offset]) => (
-            <g key={offset}>
-              <path
-                d={`M ${-40 + Number(offset)} ${430} C 260 ${380 - Number(offset)}, 420 ${120 + Number(offset)}, 840 ${-20 + Number(offset)}`}
-                stroke={String(color)}
-                strokeOpacity="0.55"
-                strokeWidth="9"
-              />
-              <path
-                className="flow"
-                d={`M ${-40 + Number(offset)} ${430} C 260 ${380 - Number(offset)}, 420 ${120 + Number(offset)}, 840 ${-20 + Number(offset)}`}
-                stroke="#fff3e0"
-                strokeOpacity="0.9"
-                strokeWidth="3"
-                style={{ animationDelay: `${Number(offset) / 10}s` }}
-              />
-            </g>
-          ))}
-        </svg>
+      {/* Decorations are clipped in their own layer so hero content is never cut off. */}
+      <section className="relative z-20 bg-night text-surface">
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <HeroCanvas />
+          {/* Keeps the brand text readable where the light streams cross it (mostly on phones). */}
+          <div className="absolute inset-y-0 left-0 w-[85%] bg-gradient-to-r from-night via-night/70 to-transparent sm:w-[60%]" />
+          <div className="absolute -left-40 -top-40 size-[34rem] rounded-full bg-[radial-gradient(circle,rgb(255_122_26/28%),transparent_65%)]" />
+        </div>
         <HeroMotion>
-          <div className="relative mx-auto grid max-w-layout items-center gap-8 px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-6">
+          <div className="relative mx-auto grid max-w-layout items-center gap-8 px-4 pb-16 pt-8 sm:px-6 sm:pb-8 md:py-10 lg:px-8">
             <div>
               <p data-hero className="text-label font-bold uppercase tracking-[0.3em] text-neon">
                 {t('eyebrow')}
@@ -101,9 +84,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
                 {titleLead}{' '}
                 {titleAccent && <span className="font-bold text-neon">{titleAccent}</span>}
               </p>
-              <div data-hero id="hero-search" className="mt-6 max-w-2xl">
-                <SearchBox tone="dark" size="lg" submitLabel={nav('search')} />
-              </div>
             </div>
           </div>
         </HeroMotion>
@@ -118,7 +98,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
             return (
               <section key={category.id}>
                 <SectionHeading
-                  title={t('trendingIn', { category: localized(category.name, locale) })}
+                  title={t('trendingIn', { category: categoryLabel(catalog, category, locale) })}
                   href={`/tashkent/${category.slug}?sort=popular`}
                 />
                 <DealCarousel deals={items} locale={locale} currency={currency} />
@@ -142,10 +122,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
           )}
           <section>
             <SectionHeading title={t('allDeals')} href="/tashkent" />
-            <InfiniteFeed
+            <DealFeed
               initial={feed.items}
               total={feed.total}
-              pageSize={feed.page_size}
               query={feedQuery}
               locale={locale}
               currency={currency}

@@ -3,7 +3,6 @@ import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { PaymentPoller } from '@/components/payment-poller';
-import { SuccessConfetti } from '@/components/success-confetti';
 import { Link } from '@/i18n/navigation';
 import { accountGetOrNull, loadForVisitor } from '@/lib/account-api';
 
@@ -33,7 +32,6 @@ export default async function SuccessPage({
 
   return (
     <div className="mx-auto max-w-md px-4 py-16 text-center sm:px-6">
-      <SuccessConfetti />
       <h1 className="text-title font-bold">{t('successTitle')}</h1>
       <p className="mt-4 text-ink-muted">{t('successText')}</p>
       <p className="mt-6 text-sm text-ink-muted">

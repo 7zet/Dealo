@@ -1,23 +1,17 @@
 import type { components } from '@grupon/api-client';
 import { getFormatter, getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 
 import { ReportActions } from '@/components/report-actions';
-import { accountGet, accountGetOrNull, loadForVisitor } from '@/lib/account-api';
+import { accountGet } from '@/lib/account-api';
+import { requireAdminArea } from '@/lib/admin-session';
 
 type ReportPage = components['schemas']['ReviewReportPage'];
-type User = components['schemas']['User'];
-
-const REVIEWERS = ['superadmin', 'admin', 'moderator'];
 
 export default async function ReportsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const t = await getTranslations('Reports');
   const format = await getFormatter();
-  const user = await loadForVisitor(locale, `/${locale}/admin/reports`, () =>
-    accountGetOrNull<User>('/me'),
-  );
-  if (!user?.roles.some((role) => REVIEWERS.includes(role))) notFound();
+  await requireAdminArea('reports', locale);
   const reports = await accountGet<ReportPage>('/admin/review-reports');
 
   return (
