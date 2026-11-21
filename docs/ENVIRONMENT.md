@@ -23,7 +23,8 @@ Plain-language reference for every setting. The API reads its settings at start-
 | `MEDIA_LOCAL_DIR`                                                                             | yes                    | `.data/media`                 | Folder where merchant images are stored. Must be a persistent volume.                                                                 |
 | `DOCUMENTS_LOCAL_DIR`                                                                         | yes                    | `.data/documents`             | Private folder for merchant certificates and bank letters. Never served publicly; must be a persistent volume with restricted access. |
 | `MEDIA_PUBLIC_BASE`                                                                           | yes                    | `http://localhost:8080/media` | Public address that serves those images.                                                                                              |
-| `TRUST_PROXY_HEADERS`                                                                         | behind a proxy only    | `false`                       | Read the client address from proxy headers. Turn on only behind a trusted proxy.                                                      |
+| `TRUST_PROXY_HEADERS`                                                                         | behind a proxy only    | `false`                       | Also trust proxy headers from private networks (10/8, 172.16/12, 192.168/16, fc00::/7).                                               |
+| `TRUSTED_PROXIES`                                                                             | behind a proxy only    | loopback                      | Comma-separated proxy IPs/CIDRs whose `X-Forwarded-For` names the client; loopback is always trusted.                                 |
 | `BRAND_NAME`                                                                                  | no                     | default brand                 | Name shown in emails.                                                                                                                 |
 | `SHUTDOWN_TIMEOUT`                                                                            | no                     | `10s`                         | Time allowed for in-flight requests on stop.                                                                                          |
 | `HTTP_READ_HEADER_TIMEOUT` / `HTTP_READ_TIMEOUT` / `HTTP_WRITE_TIMEOUT` / `HTTP_IDLE_TIMEOUT` | no                     | `5s` / `15s` / `30s` / `60s`  | HTTP timeouts.                                                                                                                        |
@@ -59,7 +60,8 @@ Run `migrate` once per release before starting the new API and worker. `seed` is
 
 Sign-in is by phone code. In development the code is returned as `dev_code` by `POST /auth/phone/code`
 and shown on the login page. Run `seed` to create these accounts; the seed never deletes accounts that
-people registered themselves.
+people registered themselves. If one of these phones already signed in on its own, the seed gives that
+account the role instead of creating a second one.
 
 | Phone         | Role             | Use                                                  |
 | ------------- | ---------------- | ---------------------------------------------------- |
@@ -72,6 +74,10 @@ people registered themselves.
 | +998900000007 | merchant_owner   | Owner D: merchant 4 (e2e merchant panel)             |
 | +998900000008 | superadmin       | Admin B: admin approval inside the e2e merchant flow |
 | +998900000009 | merchant_cashier | Cashier B: redemption for merchant 2                 |
+| +998900000010 | finance          | finance: payouts, refunds, reconciliation            |
+| +998900000011 | support          | support: disputes and customer help                  |
+| +998900000012 | moderator        | moderator: deal, review and business moderation      |
+| +998900000014 | merchant_manager | Atlas Wellness 1: deals and orders, no staff         |
 | +998910000004 | user             | extra buyer (customer04@local.test)                  |
 
 ## Local PostgreSQL
@@ -79,7 +85,9 @@ people registered themselves.
 - Data directory: `C:devgrupon-pgdata` (port 5433, user `app`, database `app`). Never inside Windows Temp:
   Windows deletes empty folders there and the cluster stops starting.
 - Start, stop, check: `scripts/dev-db.sh start | stop | status` (Git Bash).
-- Tests: `TEST_DATABASE_URL=postgres://app:app_dev_password@localhost:5433/app?sslmode=disable go test ./...`.
+- Tests: `TEST_DATABASE_URL=postgres://app:app_dev_password@localhost:5433/app_test?sslmode=disable go test ./...`.
+  Tests re-seed the database they use, so they run on a separate `app_test` database and never wipe dev
+  data in `app`. Create it once as the Postgres superuser: `CREATE DATABASE app_test OWNER app;`.
 - Move procedure used once (2026-11-03): stop the server, copy the whole folder, start with the new `-D`,
   verify (store tests pass), and only then delete the old folder.
 

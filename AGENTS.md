@@ -58,7 +58,7 @@ repository at `../dealo-docs`; read it only when a task needs the original produ
 
 - Database: PostgreSQL on port 5433; helper `scripts/dev-db.sh start|stop|status` via Git Bash.
 - Go integration tests require
-  `TEST_DATABASE_URL=postgres://app:app_dev_password@localhost:5433/app?sslmode=disable`.
+  `TEST_DATABASE_URL=postgres://app:app_dev_password@localhost:5433/app_test?sslmode=disable`.
 - Focused tests first; at the end of a task group run `go test ./... -count=1`, `go vet ./...`, web
   typecheck, and web unit tests. Run Playwright when browser flows change.
 - E2E rewrites `docs/screenshots/*.png`; do not commit those incidental changes.

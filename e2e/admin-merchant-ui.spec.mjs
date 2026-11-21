@@ -119,6 +119,8 @@ async function signIn(page, email) {
 }
 
 async function signInPhone(page, phone) {
+  // The login page sends signed-in visitors away, so drop any earlier session first.
+  await page.context().clearCookies();
   await page.goto('/uz/login');
   await page.getByLabel(/Telefon raqami/).fill(phone.slice(4));
   await page.getByRole('button', { name: /Kod yuborish/ }).click();
@@ -175,7 +177,7 @@ test('merchant attaches price proof before submission and admin sees it', async 
   await signIn(page, 'admin@local.test');
   await page.goto('/uz/admin/merchants');
   const merchant = page.getByText(displayName).locator('xpath=ancestor::li');
-  await expect(merchant.getByRole('link', { name: /Narx tasdig'i/ })).toBeVisible();
+  await expect(merchant.getByRole('link', { name: /Narx tasdig‘i/ })).toBeVisible();
 });
 
 test('admin approves and rejects deals in the moderation queue', async ({ page }) => {
@@ -280,8 +282,8 @@ test('merchant completes all six deal-wizard steps and submits for review', asyn
     createdResponse.status(),
     `${await createdResponse.text()}\n${createdResponse.request().postData()}`,
   ).toBe(201);
-  await expect(page.getByRole('alert').first()).toContainText('Tekshiruvga yuborildi');
-  await page.goto('/uz/merchant/deals');
+  await expect(page.getByRole('status').first()).toContainText('Tekshiruvga yuborildi');
+  await page.waitForURL(/\/uz\/merchant\/deals$/);
   const row = page.getByRole('row').filter({ hasText: title });
-  await expect(row).toContainText(/Ko'rib chiqilmoqda/);
+  await expect(row).toContainText(/Ko‘rib chiqilmoqda/);
 });
