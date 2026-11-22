@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/grupon/grupon/services/api/internal/domain/ledger"
-	"github.com/grupon/grupon/services/api/internal/store"
-	sqlc "github.com/grupon/grupon/services/api/internal/store/sqlc"
+	"github.com/dealo/dealo/services/api/internal/domain/ledger"
+	"github.com/dealo/dealo/services/api/internal/store"
+	sqlc "github.com/dealo/dealo/services/api/internal/store/sqlc"
 	"os"
 	"path/filepath"
 	"strings"
@@ -207,7 +207,8 @@ func populate(ctx context.Context, tx pgx.Tx, data seedData, images []imageSeed)
 		for j := 0; j < 1+i%3; j++ {
 			var id string
 			city := 0 // Toshkent: the only open city in the pilot (cities are listed in seed/data.json)
-			if err := tx.QueryRow(ctx, `INSERT INTO merchant_locations(merchant_id,city_id,address,lat,lng,opening_hours,phone) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`, merchantIDs[i], cityIDs[city], fmt.Sprintf("Seed ko'chasi %d, %d", i+1, j+1), data.Cities[city].Lat+float64(j)/1000, data.Cities[city].Lng+float64(j)/1000, hours, fmt.Sprintf("+99890100%04d", i)).Scan(&id); err != nil {
+			spot := tashkentSpots[(i*3+j)%len(tashkentSpots)]
+			if err := tx.QueryRow(ctx, `INSERT INTO merchant_locations(merchant_id,city_id,address,lat,lng,opening_hours,phone) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`, merchantIDs[i], cityIDs[city], spot.address(i, j), spot.lat+jitter(i, j, 0), spot.lng+jitter(i, j, 1), hours, fmt.Sprintf("+99890100%04d", i)).Scan(&id); err != nil {
 				return err
 			}
 			locationIDs[i] = append(locationIDs[i], id)
@@ -404,4 +405,36 @@ func seedRoleAccounts(ctx context.Context, tx pgx.Tx, merchantID string) error {
 		}
 	}
 	return nil
+}
+
+// tashkentSpot is a real street in a Tashkent district, so seeded branches spread over the city map
+// instead of stacking on the city centre.
+type tashkentSpot struct {
+	street   string
+	district string
+	lat, lng float64
+}
+
+func (s tashkentSpot) address(i, j int) string {
+	return fmt.Sprintf("%s, %s, %d-uy", s.district, s.street, 3+(i*7+j*5)%90)
+}
+
+var tashkentSpots = []tashkentSpot{
+	{"Amir Temur ko‘chasi", "Yunusobod tumani", 41.3460, 69.2860},
+	{"Navoiy ko‘chasi", "Shayxontohur tumani", 41.3180, 69.2520},
+	{"Bunyodkor shoh ko‘chasi", "Chilonzor tumani", 41.2860, 69.2040},
+	{"Buyuk Ipak Yo‘li ko‘chasi", "Mirzo Ulug‘bek tumani", 41.3240, 69.3350},
+	{"Shota Rustaveli ko‘chasi", "Yakkasaroy tumani", 41.2900, 69.2600},
+	{"Afrosiyob ko‘chasi", "Mirobod tumani", 41.2960, 69.2790},
+	{"Farobiy ko‘chasi", "Olmazor tumani", 41.3420, 69.2150},
+	{"Bobur ko‘chasi", "Yakkasaroy tumani", 41.3030, 69.2470},
+	{"Sayilgoh ko‘chasi", "Yunusobod tumani", 41.3130, 69.2770},
+	{"Qatortol ko‘chasi", "Chilonzor tumani", 41.2780, 69.1950},
+	{"Yangi Sergeli ko‘chasi", "Sergeli tumani", 41.2260, 69.2200},
+	{"Mustaqillik shoh ko‘chasi", "Mirzo Ulug‘bek tumani", 41.3280, 69.3010},
+}
+
+// jitter moves a branch up to ~400 m from its street point, the same way on every run.
+func jitter(i, j, axis int) float64 {
+	return float64((i*13+j*7+axis*5)%9-4) / 1000
 }

@@ -5,6 +5,7 @@ export default defineConfig({
   // Each spec signs in with its own seeded accounts (see services/api/internal/seed), so specs run in parallel.
   workers: 4,
   globalSetup: './global-setup.mjs',
+  globalTeardown: './global-teardown.mjs',
   use: {
     baseURL: 'http://127.0.0.1:3000',
     // Edge ships with Windows; elsewhere (macOS, CI) use Playwright's bundled Chromium.
@@ -12,7 +13,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'corepack pnpm --filter @grupon/web start',
+    command: 'corepack pnpm --filter @dealo/web start',
     url: 'http://127.0.0.1:3000/uz',
     reuseExistingServer: true,
     timeout: 120000,

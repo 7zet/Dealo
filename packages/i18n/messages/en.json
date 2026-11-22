@@ -13,7 +13,7 @@
     "language": "Language",
     "saved": "Saved",
     "account": "Account",
-    "coupons": "My coupons",
+    "coupons": "My vouchers",
     "menu": "Menu",
     "close": "Close",
     "skipToContent": "Skip to main content",
@@ -34,7 +34,7 @@
     "description": "Discover hand-picked restaurants, wellness, activities, trips and more near you.",
     "searches": "Popular searches",
     "featured": "Featured deals",
-    "trending": "Trending coupons",
+    "trending": "Trending vouchers",
     "popular": "Popular near you",
     "allDeals": "All deals",
     "categories": "Explore categories",
@@ -127,7 +127,7 @@
     "closed": "Closed",
     "noReviews": "No reviews yet",
     "reviewsEmptyTitle": "No reviews yet",
-    "reviewsEmptyText": "Only customers who have used this coupon can leave a review.",
+    "reviewsEmptyText": "Only customers who have used this voucher can leave a review.",
     "photoAlt": "{title} — photo {index}",
     "showPhoto": "Show photo {index}",
     "days": {
@@ -141,7 +141,7 @@
     }
   },
   "Coupons": {
-    "title": "Coupons",
+    "title": "Vouchers",
     "description": "Voucher deals and verified brand promo codes.",
     "deals": "Deals",
     "promo": "Promo codes",
@@ -183,7 +183,93 @@
     "termsText": "These terms explain the rules for using the marketplace and purchasing vouchers.",
     "privacyTitle": "Privacy policy",
     "privacyText": "We collect only the information needed to operate, secure and improve the service.",
-    "contact": "Contact support"
+    "contact": "Contact support",
+    "updated": "Last updated: 22 November 2026",
+    "contactTitle": "Contact us",
+    "contactHours": "Every day 09:00–21:00 (Tashkent time)",
+    "faqTitle": "Frequently asked questions",
+    "helpFaq": [
+      {
+        "q": "How do I buy a voucher?",
+        "a": "Pick a deal, choose the option and quantity, and tap “Buy now”. Sign in with your phone number and complete the payment. The voucher appears in “My vouchers” right away."
+      },
+      {
+        "q": "How do I use a voucher?",
+        "a": "Visit the business and show the cashier the QR code or the XXXX-XXXX code from “My vouchers”. The cashier checks the code and marks the voucher as used."
+      },
+      {
+        "q": "How long is a voucher valid?",
+        "a": "The validity is shown on each deal page. A voucher is valid until 23:59 on its last day (Tashkent time). A multi-use voucher works until the final visit."
+      },
+      {
+        "q": "Can I get a refund?",
+        "a": "An unused voucher is refunded automatically within 14 days of payment. After 14 days, send a request and our support team will review it."
+      },
+      {
+        "q": "What if the business refuses my voucher?",
+        "a": "Tap “Report a problem” on the voucher page or write to us. The business’s payout is held until the dispute is resolved."
+      },
+      {
+        "q": "How do I add my business to Dealo?",
+        "a": "Fill in the application on the “Add your business” page and upload your documents. After review you can publish deals."
+      }
+    ],
+    "termsSections": [
+      {
+        "title": "1. General",
+        "body": "Dealo is a platform that sells discounted offers from local Tashkent businesses as vouchers. By using the site you agree to these terms."
+      },
+      {
+        "title": "2. Account and sign-in",
+        "body": "You sign in only with your phone number and an SMS code. You are responsible for keeping your account and phone secure. Never share the code."
+      },
+      {
+        "title": "3. Purchase and payment",
+        "body": "Prices are in UZS. A voucher is issued once payment succeeds. The title, price and terms at the time of purchase are kept; later changes do not affect your voucher."
+      },
+      {
+        "title": "4. Using a voucher",
+        "body": "A voucher can be used only at the business that owns the deal and within the stated period. It cannot be exchanged for cash. Visit times depend on the business’s schedule."
+      },
+      {
+        "title": "5. Refunds",
+        "body": "An unused voucher is refunded automatically within 14 days of payment. Later requests and disputes are reviewed by our support team."
+      },
+      {
+        "title": "6. For businesses",
+        "body": "The business is responsible for the accuracy of its deal and the quality of its service. After a voucher is redeemed, Dealo keeps its commission and pays the rest to the business."
+      },
+      {
+        "title": "7. Liability and changes",
+        "body": "Dealo is an intermediary; the service itself is provided by the business. We may update these terms; a new version takes effect on the day it is published on the site."
+      }
+    ],
+    "privacySections": [
+      {
+        "title": "1. What we collect",
+        "body": "Your phone number, name, purchase and voucher history, your reviews, and technical data needed for security (IP address, device type)."
+      },
+      {
+        "title": "2. Why we use it",
+        "body": "To sign you in, process purchases, check vouchers, issue refunds, prevent fraud and improve the service."
+      },
+      {
+        "title": "3. Who we share it with",
+        "body": "A business sees only what it needs to redeem your voucher. Payment and SMS providers receive the data they need to deliver their service. We do not sell your data."
+      },
+      {
+        "title": "4. How long we keep it",
+        "body": "Data is kept while your account is active and for the accounting periods required by law."
+      },
+      {
+        "title": "5. Your rights",
+        "body": "You can ask to see or correct your data and to delete your account. Write to our support team to do so."
+      },
+      {
+        "title": "6. Security",
+        "body": "Data travels over encrypted connections, staff access is limited by role, and sensitive actions are recorded in an audit log."
+      }
+    ]
   },
   "Footer": {
     "discover": "Discover",
@@ -211,8 +297,9 @@
   "Auth": {
     "loginTitle": "Sign in to your account",
     "loginSubtitle": "Sign in to continue your purchase.",
+    "loginSubtitleGeneric": "Sign in with your phone number to continue.",
     "registerTitle": "Create an account",
-    "registerSubtitle": "Your coupons and orders stay in one place.",
+    "registerSubtitle": "Your vouchers and orders stay in one place.",
     "email": "Email",
     "password": "Password",
     "name": "Name",
@@ -249,7 +336,7 @@
   },
   "Account": {
     "title": "My account",
-    "couponsTitle": "My coupons",
+    "couponsTitle": "My vouchers",
     "ordersTitle": "My orders",
     "orderTitle": "Order",
     "savedTitle": "Saved",
@@ -258,7 +345,7 @@
     "tabActive": "Active",
     "tabUsed": "Used",
     "tabExpired": "Expired",
-    "emptyCoupons": "No coupons in this section.",
+    "emptyCoupons": "No vouchers in this section.",
     "emptyOrders": "No orders yet.",
     "emptySaved": "No saved deals yet.",
     "emptyReviews": "No reviews yet.",
@@ -303,8 +390,8 @@
     "reviewStatusPending": "Awaiting moderation",
     "merchantReply": "Reply from {merchant}",
     "reviewsEmptyTitle": "You have not written any reviews yet",
-    "reviewsEmptyText": "After you use a coupon, you can rate the visit on the coupon page.",
-    "reviewsEmptyCta": "Go to my coupons",
+    "reviewsEmptyText": "After you use a voucher, you can rate the visit on the voucher page.",
+    "reviewsEmptyCta": "Go to my vouchers",
     "reviewsLoadError": "Your reviews could not be loaded right now.",
     "retry": "Try again",
     "reviewEdit": "Edit",
@@ -312,11 +399,11 @@
     "reviewDeleteConfirm": "Delete this review? This cannot be undone.",
     "reviewSave": "Save",
     "reviewEditTitle": "Edit review",
-    "termsTitle": "Terms of this coupon",
+    "termsTitle": "Terms of this voucher",
     "pricePaid": "Price paid",
-    "voucherUsedTitle": "This coupon has been used",
+    "voucherUsedTitle": "This voucher has been used",
     "usedAt": "Used on {date}",
-    "voucherInactiveTitle": "This coupon can no longer be used",
+    "voucherInactiveTitle": "This voucher can no longer be used",
     "unitPrice": "Price per unit",
     "quantity": "Quantity"
   },
@@ -348,7 +435,7 @@
     "mockBusy": "Processing payment…",
     "successTitle": "Purchase complete!",
     "successText": "Your vouchers are ready. You can find them in your account.",
-    "viewCoupons": "My coupons",
+    "viewCoupons": "My vouchers",
     "orderNumber": "Order number",
     "failedTitle": "Payment did not go through",
     "failedText": "Nothing was charged. You can retry while the stock reservation is still active.",
@@ -751,7 +838,7 @@
     "staffInvite": "Invite",
     "staffRemove": "Remove",
     "errorAlreadyStaff": "This person already works in your business.",
-    "errorUserNotFound": "No account uses this phone. The person must sign in to Grupon once with this number first.",
+    "errorUserNotFound": "No account uses this phone. The person must sign in to Dealo once with this number first.",
     "errorStaffNotFound": "This staff member is no longer listed. Refresh the page.",
     "errorOwnerProtected": "The owner’s role cannot be changed and the owner cannot be removed.",
     "errorStaffPhoneInvalid": "Enter the phone as +998XXXXXXXXX.",
@@ -887,7 +974,7 @@
       "superadmin": "Super administrator"
     },
     "roleText": {
-      "user": "Buys vouchers, keeps coupons and writes reviews.",
+      "user": "Buys vouchers, keeps vouchers and writes reviews.",
       "merchant_owner": "Full control of the business: offers, staff and payouts.",
       "merchant_manager": "Manages the offers, branches and orders of the business.",
       "merchant_cashier": "Checks and redeems customer vouchers at the counter.",

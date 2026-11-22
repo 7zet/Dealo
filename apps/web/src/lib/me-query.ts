@@ -1,6 +1,6 @@
 'use client';
 
-import type { components } from '@grupon/api-client';
+import type { components } from '@dealo/api-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -14,7 +14,7 @@ type Notification = components['schemas']['Notification'];
  * client-side navigation reuses the answer. There is no polling; signing in or out announces
  * SESSION_CHANGED_EVENT (see announceSessionChange), which drops the cached answers.
  */
-export const SESSION_CHANGED_EVENT = 'grupon:session-changed';
+export const SESSION_CHANGED_EVENT = 'dealo:session-changed';
 
 /** Tells the shared queries that the account behind the cookies changed (sign-in, sign-out). */
 export function announceSessionChange(): void {
@@ -56,8 +56,12 @@ export type NotificationsResult = { status: 'guest' } | { status: 'ready'; items
 /** The visitor's notifications; `guest` when there is no session. Other failures are query errors. */
 export function useMyNotifications() {
   useResetOnSessionChange();
-  return useQuery({
+  // A guest has no notifications: wait for /me and skip the request when nobody is signed in.
+  const me = useMe();
+  const signedIn = Boolean(me.data);
+  const query = useQuery({
     ...SHARED,
+    enabled: signedIn,
     staleTime: 60_000,
     queryKey: ['bff', 'me', 'notifications'],
     queryFn: async (): Promise<NotificationsResult> => {
@@ -68,4 +72,8 @@ export function useMyNotifications() {
       return { status: 'ready', items: body.items };
     },
   });
+  if (me.isSuccess && !signedIn) {
+    return { ...query, data: { status: 'guest' } as NotificationsResult, isPending: false };
+  }
+  return query;
 }

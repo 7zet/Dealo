@@ -37,7 +37,9 @@ export default async function LoginPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <h1 className="text-title font-bold">{t('loginTitle')}</h1>
-      <p className="mt-4 text-lead text-ink-muted">{t('loginSubtitle')}</p>
+      <p className="mt-4 text-lead text-ink-muted">
+        {t(next?.startsWith('/checkout') ? 'loginSubtitle' : 'loginSubtitleGeneric')}
+      </p>
       <AuthForm mode="login" next={next ? safeNextPath(next) : undefined} />
     </div>
   );

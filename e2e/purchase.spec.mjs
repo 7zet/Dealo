@@ -58,6 +58,6 @@ test('browse → login mid-flow → buy → voucher visible', async ({ page }) =
   });
 
   // The voucher, with its human code, is visible in the account.
-  await page.getByRole('link', { name: /Kuponlarim/ }).click();
+  await page.getByRole('link', { name: /Vaucherlarim/ }).click();
   await expect(page.getByText(/[A-Z0-9]{4}-[A-Z0-9]{4}/).first()).toBeVisible();
 });

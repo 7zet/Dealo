@@ -82,7 +82,7 @@ account the role instead of creating a second one.
 
 ## Local PostgreSQL
 
-- Data directory: `C:devgrupon-pgdata` (port 5433, user `app`, database `app`). Never inside Windows Temp:
+- Data directory: `C:devdealo-pgdata` (port 5433, user `app`, database `app`). Never inside Windows Temp:
   Windows deletes empty folders there and the cluster stops starting.
 - Start, stop, check: `scripts/dev-db.sh start | stop | status` (Git Bash).
 - Tests: `TEST_DATABASE_URL=postgres://app:app_dev_password@localhost:5433/app_test?sslmode=disable go test ./...`.
@@ -92,6 +92,10 @@ account the role instead of creating a second one.
   verify (store tests pass), and only then delete the old folder.
 
 ## Playwright
+
+- E2E runs against the dev stack. After the run, `e2e/global-teardown.mjs` reloads the seed so test deals
+  ("E2E aksiya", "Moderatsiya approve …") do not stay on public pages. Set `E2E_KEEP_DATA=1` to keep them.
+- Do not run E2E while doing manual QA in the browser: it signs in with the same seeded phones.
 
 - `e2e/playwright.config.mjs` starts the web app with `corepack pnpm`, so it works without `pnpm` on PATH.
 - Each spec uses its own seeded accounts; workers run in parallel.

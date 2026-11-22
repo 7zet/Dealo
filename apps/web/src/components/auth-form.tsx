@@ -211,7 +211,13 @@ export function AuthForm({ next }: { mode?: 'login' | 'register'; next?: string 
               placeholder="901234567"
               className="min-w-0 flex-1 rounded-control-ui border border-border bg-surface px-4 py-3 text-ink"
               aria-invalid={Boolean(errors.digits)}
-              {...phoneForm.register('digits')}
+              {...phoneForm.register('digits', {
+                setValueAs: (value: string) => value.replace(/\D/g, ''),
+              })}
+              onInput={(event) => {
+                const input = event.currentTarget;
+                input.value = input.value.replace(/\D/g, '');
+              }}
             />
           </div>
           {errors.digits && (

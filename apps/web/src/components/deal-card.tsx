@@ -1,9 +1,9 @@
 'use client';
 
-import type { DealSummary } from '@grupon/api-client';
-import { localized, type Currency, type Locale } from '@grupon/config';
-import { discountPercent, formatMoney } from '@grupon/ui';
-import { ArrowUpRight, Clock3, Heart, Star } from 'lucide-react';
+import type { DealSummary } from '@dealo/api-client';
+import { localized, type Currency, type Locale } from '@dealo/config';
+import { discountPercent, formatMoney } from '@dealo/ui';
+import { ArrowUpRight, Clock3, Star } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
@@ -93,10 +93,10 @@ export function DealCard({
           )}
           <div className="mt-auto flex items-end justify-between gap-2 pt-4">
             <div>
-              <div className="tabular-nums text-lead font-extrabold text-ink">
+              <div className="whitespace-nowrap tabular-nums text-lead font-extrabold text-ink">
                 {formatMoney(option.deal_price.amount, locale, currency)}
               </div>
-              <div className="tabular-nums text-small text-ink-faint line-through">
+              <div className="whitespace-nowrap tabular-nums text-small text-ink-faint line-through">
                 {formatMoney(option.original_price.amount, locale, currency)}
               </div>
             </div>
@@ -106,13 +106,6 @@ export function DealCard({
           </div>
         </div>
       </Link>
-      <button
-        className="absolute right-3 top-3 z-[2] grid size-9 place-items-center rounded-round-ui bg-surface/90 text-ink-muted shadow-floating-ui backdrop-blur hover:text-brand"
-        aria-label={t('save')}
-        type="button"
-      >
-        <Heart className="size-[1.125rem]" />
-      </button>
     </motion.article>
   );
 }

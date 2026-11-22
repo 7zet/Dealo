@@ -1,5 +1,5 @@
-import { publicApi, type DealSummary } from '@grupon/api-client';
-import { localized, type Locale } from '@grupon/config';
+import { publicApi, type DealSummary } from '@dealo/api-client';
+import { localized, type Locale } from '@dealo/config';
 import { ChevronRight } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
@@ -65,8 +65,11 @@ export async function ListingPage({
   const totalPages = Math.max(1, Math.ceil(result.total / result.page_size));
 
   // An empty result offers a way out: drop the filters of this listing, or browse every deal.
-  const basePath = searchQuery
-    ? `/search?${new URLSearchParams({ q: searchQuery })}`
+  const onSearchPage = searchQuery !== undefined;
+  const basePath = onSearchPage
+    ? searchQuery
+      ? `/search?${new URLSearchParams({ q: searchQuery })}`
+      : '/search'
     : `/${citySlug ?? city.slug}${categorySlug ? `/${categorySlug}` : ''}`;
   const hasFilters = LISTING_FILTER_KEYS.some((key) => searchParams[key]);
   const emptyAction = hasFilters

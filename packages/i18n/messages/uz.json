@@ -13,7 +13,7 @@
     "language": "Til",
     "saved": "Saqlangan",
     "account": "Profil",
-    "coupons": "Kuponlarim",
+    "coupons": "Vaucherlarim",
     "menu": "Menyu",
     "close": "Yopish",
     "skipToContent": "Asosiy qismga o‘tish",
@@ -34,7 +34,7 @@
     "description": "Yaqiningizdagi saralangan restoran, salomatlik, hordiq va sayohat takliflarini toping.",
     "searches": "Mashhur qidiruvlar",
     "featured": "Tanlangan takliflar",
-    "trending": "Ommabop kuponlar",
+    "trending": "Ommabop vaucherlar",
     "popular": "Yaqin atrofda mashhur",
     "allDeals": "Barcha takliflar",
     "categories": "Kategoriyalar",
@@ -120,14 +120,14 @@
     "report": "Shikoyat qilish",
     "faq": "Ko‘p so‘raladigan savollar",
     "related": "Sizga yoqishi mumkin",
-    "validity": "Kupon amal qilish muddati",
+    "validity": "Vaucher amal qilish muddati",
     "booking": "Oldindan band qilish kerak",
     "paymentNote": "To‘lov so‘mda yechiladi.",
     "validityDays": "{count} kun",
     "closed": "Dam olish kuni",
     "noReviews": "Hali sharh yo‘q",
     "reviewsEmptyTitle": "Hali sharhlar yo‘q",
-    "reviewsEmptyText": "Sharhni faqat ushbu kupondan foydalangan xaridorlar qoldira oladi.",
+    "reviewsEmptyText": "Sharhni faqat ushbu vaucherdan foydalangan xaridorlar qoldira oladi.",
     "photoAlt": "{title} — {index}-rasm",
     "showPhoto": "{index}-rasmni ko‘rsatish",
     "days": {
@@ -141,7 +141,7 @@
     }
   },
   "Coupons": {
-    "title": "Kuponlar",
+    "title": "Vaucherlar",
     "description": "Vaucher takliflari va tasdiqlangan brend promo-kodlari.",
     "deals": "Takliflar",
     "promo": "Promo-kodlar",
@@ -183,7 +183,93 @@
     "termsText": "Ushbu shartlar platformadan foydalanish va vaucher xaridi qoidalarini tushuntiradi.",
     "privacyTitle": "Maxfiylik siyosati",
     "privacyText": "Biz xizmatni ishlatish, himoyalash va yaxshilash uchun zarur ma’lumotnigina yig‘amiz.",
-    "contact": "Yordamga yozish"
+    "contact": "Yordamga yozish",
+    "updated": "Oxirgi yangilanish: 2026-yil 22-noyabr",
+    "contactTitle": "Biz bilan bog‘lanish",
+    "contactHours": "Har kuni 09:00–21:00 (Toshkent vaqti)",
+    "faqTitle": "Ko‘p beriladigan savollar",
+    "helpFaq": [
+      {
+        "q": "Vaucherni qanday sotib olaman?",
+        "a": "Taklifni tanlang, variant va sonini belgilang, “Hozir xarid qilish” tugmasini bosing. Telefon raqamingiz bilan kiring va to‘lovni yakunlang. Vaucher darhol “Vaucherlarim” bo‘limida paydo bo‘ladi."
+      },
+      {
+        "q": "Vaucherdan qanday foydalanaman?",
+        "a": "Biznesga boring va kassirga “Vaucherlarim” bo‘limidagi QR kodni yoki XXXX-XXXX ko‘rinishidagi kodni ko‘rsating. Kassir kodni tekshirib, vaucherni ishlatilgan deb belgilaydi."
+      },
+      {
+        "q": "Vaucherning amal qilish muddati qancha?",
+        "a": "Muddat har bir taklif sahifasida ko‘rsatiladi. Vaucher oxirgi kuni soat 23:59 gacha (Toshkent vaqti) amal qiladi. Ko‘p martalik vaucher oxirgi tashrifgacha ishlaydi."
+      },
+      {
+        "q": "Pulimni qaytarib olsam bo‘ladimi?",
+        "a": "Ishlatilmagan vaucher uchun to‘lovdan keyin 14 kun ichida pul avtomatik qaytariladi. 14 kundan keyin so‘rov yuboring — uni qo‘llab-quvvatlash xizmati ko‘rib chiqadi."
+      },
+      {
+        "q": "Biznes vaucherni qabul qilmasa nima qilaman?",
+        "a": "Vaucher sahifasida “Muammo haqida xabar berish” tugmasini bosing yoki bizga yozing. Nizo ko‘rib chiqilguncha biznesga to‘lov to‘xtatib turiladi."
+      },
+      {
+        "q": "Biznesimni Dealo’ga qanday qo‘shaman?",
+        "a": "“Biznesingizni qo‘shing” sahifasida ariza to‘ldiring va hujjatlarni yuklang. Tekshiruvdan so‘ng takliflaringizni joylashtirishingiz mumkin."
+      }
+    ],
+    "termsSections": [
+      {
+        "title": "1. Umumiy qoidalar",
+        "body": "Dealo — Toshkentdagi mahalliy bizneslarning chegirmali takliflarini vaucher ko‘rinishida sotadigan platforma. Saytdan foydalanish orqali siz ushbu shartlarga rozilik bildirasiz."
+      },
+      {
+        "title": "2. Hisob va kirish",
+        "body": "Tizimga faqat telefon raqam va SMS kod orqali kiriladi. Hisobingiz va telefoningiz xavfsizligi uchun o‘zingiz javobgarsiz. Kodni hech kimga bermang."
+      },
+      {
+        "title": "3. Xarid va to‘lov",
+        "body": "Narxlar so‘mda ko‘rsatiladi. To‘lov muvaffaqiyatli o‘tgach vaucher beriladi. Xarid paytidagi sarlavha, narx va shartlar saqlanadi; keyingi o‘zgarishlar sizning vaucheringizga ta’sir qilmaydi."
+      },
+      {
+        "title": "4. Vaucherdan foydalanish",
+        "body": "Vaucher faqat taklif egasi bo‘lgan biznesda va ko‘rsatilgan muddatda ishlatiladi. Uni naqd pulga almashtirib bo‘lmaydi. Ishlatish vaqti biznes jadvaliga bog‘liq."
+      },
+      {
+        "title": "5. Pulni qaytarish",
+        "body": "Ishlatilmagan vaucher uchun to‘lovdan keyin 14 kun ichida pul avtomatik qaytariladi. Keyingi so‘rovlar va nizolar qo‘llab-quvvatlash xizmati tomonidan ko‘rib chiqiladi."
+      },
+      {
+        "title": "6. Bizneslar uchun",
+        "body": "Biznes taklifning to‘g‘riligi va xizmat sifati uchun javobgar. Dealo vaucher ishlatilgandan keyin komissiyani ushlab qolib, qolgan summani biznesga o‘tkazadi."
+      },
+      {
+        "title": "7. Javobgarlik va o‘zgarishlar",
+        "body": "Dealo vositachi platforma bo‘lib, xizmatni bevosita biznes ko‘rsatadi. Biz shartlarni yangilashimiz mumkin; yangi tahrir saytda e’lon qilingan kundan kuchga kiradi."
+      }
+    ],
+    "privacySections": [
+      {
+        "title": "1. Qanday ma’lumot yig‘amiz",
+        "body": "Telefon raqam, ism, xaridlar va vaucherlar tarixi, qoldirgan sharhlaringiz hamda xavfsizlik uchun zarur texnik ma’lumotlar (IP manzil, qurilma turi)."
+      },
+      {
+        "title": "2. Nima uchun foydalanamiz",
+        "body": "Hisobga kirish, xaridni bajarish, vaucherni tekshirish, pulni qaytarish, firibgarlikning oldini olish va xizmatni yaxshilash uchun."
+      },
+      {
+        "title": "3. Kim bilan bo‘lishamiz",
+        "body": "Vaucheringizni ishlatish uchun biznes faqat zarur ma’lumotni ko‘radi. To‘lov va SMS provayderlari xizmat ko‘rsatish uchun kerakli ma’lumotni oladi. Ma’lumotlaringizni sotmaymiz."
+      },
+      {
+        "title": "4. Saqlash muddati",
+        "body": "Ma’lumotlar hisobingiz faol bo‘lgan davrda va qonunda belgilangan buxgalteriya muddatlari davomida saqlanadi."
+      },
+      {
+        "title": "5. Sizning huquqlaringiz",
+        "body": "Ma’lumotlaringizni ko‘rish, tuzatish va hisobni o‘chirishni so‘rashingiz mumkin. Buning uchun qo‘llab-quvvatlash xizmatiga yozing."
+      },
+      {
+        "title": "6. Xavfsizlik",
+        "body": "Ma’lumotlar shifrlangan ulanish orqali uzatiladi, xodimlarning kirishi rollar bilan cheklangan va muhim amallar audit jurnalida qayd etiladi."
+      }
+    ]
   },
   "Footer": {
     "discover": "Kashf etish",
@@ -211,6 +297,7 @@
   "Auth": {
     "loginTitle": "Hisobingizga kiring",
     "loginSubtitle": "Xaridni davom ettirish uchun tizimga kiring.",
+    "loginSubtitleGeneric": "Davom etish uchun telefon raqamingiz bilan kiring.",
     "registerTitle": "Yangi hisob yarating",
     "registerSubtitle": "Vaucherlaringiz va buyurtmalaringiz bir joyda saqlanadi.",
     "email": "Elektron pochta",
@@ -249,7 +336,7 @@
   },
   "Account": {
     "title": "Hisobim",
-    "couponsTitle": "Kuponlarim",
+    "couponsTitle": "Vaucherlarim",
     "ordersTitle": "Buyurtmalarim",
     "orderTitle": "Buyurtma",
     "savedTitle": "Saqlanganlar",
@@ -303,8 +390,8 @@
     "reviewStatusPending": "Moderatsiyada",
     "merchantReply": "{merchant} javobi",
     "reviewsEmptyTitle": "Siz hali sharh yozmagansiz",
-    "reviewsEmptyText": "Kupondan foydalangach, tashrifni kupon sahifasida baholashingiz mumkin.",
-    "reviewsEmptyCta": "Kuponlarimga o‘tish",
+    "reviewsEmptyText": "Vaucherdan foydalangach, tashrifni vaucher sahifasida baholashingiz mumkin.",
+    "reviewsEmptyCta": "Vaucherlarimga o‘tish",
     "reviewsLoadError": "Hozir sharhlaringizni yuklab bo‘lmadi.",
     "retry": "Qayta urinish",
     "reviewEdit": "Tahrirlash",
@@ -312,11 +399,11 @@
     "reviewDeleteConfirm": "Bu sharh o‘chirilsinmi? Buni qaytarib bo‘lmaydi.",
     "reviewSave": "Saqlash",
     "reviewEditTitle": "Sharhni tahrirlash",
-    "termsTitle": "Kupon shartlari",
+    "termsTitle": "Vaucher shartlari",
     "pricePaid": "To‘langan narx",
-    "voucherUsedTitle": "Bu kupondan foydalanilgan",
+    "voucherUsedTitle": "Bu vaucherdan foydalanilgan",
     "usedAt": "Foydalanilgan sana: {date}",
-    "voucherInactiveTitle": "Bu kupon endi amal qilmaydi",
+    "voucherInactiveTitle": "Bu vaucher endi amal qilmaydi",
     "unitPrice": "Bir dona narxi",
     "quantity": "Soni"
   },
@@ -348,7 +435,7 @@
     "mockBusy": "To‘lov qayta ishlanmoqda…",
     "successTitle": "Xarid muvaffaqiyatli yakunlandi!",
     "successText": "Vaucherlar tayyor. Ularni hisobingizdan ko‘rishingiz mumkin.",
-    "viewCoupons": "Kuponlarim",
+    "viewCoupons": "Vaucherlarim",
     "orderNumber": "Buyurtma raqami",
     "failedTitle": "To‘lov amalga oshmadi",
     "failedText": "Mablag‘ yechilmadi. Zaxira vaqti tugamaguncha qayta urinishingiz mumkin.",
@@ -751,7 +838,7 @@
     "staffInvite": "Taklif qilish",
     "staffRemove": "O‘chirish",
     "errorAlreadyStaff": "Bu odam allaqachon biznesingizda ishlaydi.",
-    "errorUserNotFound": "Bu raqam bilan hisob topilmadi. Odam avval Grupon’ga shu raqam bilan bir marta kirishi kerak.",
+    "errorUserNotFound": "Bu raqam bilan hisob topilmadi. Odam avval Dealo’ga shu raqam bilan bir marta kirishi kerak.",
     "errorStaffNotFound": "Bu xodim endi ro‘yxatda yo‘q. Sahifani yangilang.",
     "errorOwnerProtected": "Biznes egasining rolini o‘zgartirib yoki uni chiqarib bo‘lmaydi.",
     "errorStaffPhoneInvalid": "Telefon raqamini +998XXXXXXXXX ko‘rinishida kiriting.",
@@ -887,7 +974,7 @@
       "superadmin": "Superadministrator"
     },
     "roleText": {
-      "user": "Vaucher xarid qiladi, kuponlarni saqlaydi va sharh yozadi.",
+      "user": "Vaucher xarid qiladi, vaucherlarni saqlaydi va sharh yozadi.",
       "merchant_owner": "Biznesni to‘liq boshqaradi: takliflar, xodimlar va to‘lovlar.",
       "merchant_manager": "Biznesning takliflari, filiallari va buyurtmalarini boshqaradi.",
       "merchant_cashier": "Kassada mijozlar vaucherlarini tekshiradi va so‘ndiradi.",
