@@ -589,6 +589,8 @@
     "price": "Chegirmali narx asl narxdan katta bo‘lmasligi kerak",
     "mediaPick": "Rasmlarni tanlang (3 dan 8 gacha)",
     "mediaCount": "Kamida 3 ta, ko‘pi bilan 8 ta rasm tanlang",
+    "mediaNotFound": "Rasmlardan biri media kutubxonangizda endi yo‘q. Rasmlarni qaytadan tanlang.",
+    "optionNotFound": "Variant boshqa joyda o‘zgartirilgan. Sahifani yangilang va qaytadan urinib ko‘ring.",
     "highlights": "Afzalliklar",
     "terms": "Shartlar",
     "redemptionMethod": "Foydalanish usuli",

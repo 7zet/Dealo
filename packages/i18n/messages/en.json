@@ -589,6 +589,8 @@
     "price": "Deal price cannot be above the original price",
     "mediaPick": "Pick photos (3 to 8)",
     "mediaCount": "Pick between 3 and 8 photos",
+    "mediaNotFound": "One of the photos is no longer in your media library. Pick the photos again.",
+    "optionNotFound": "An option was changed elsewhere. Reload the page and try again.",
     "highlights": "Highlights",
     "terms": "Terms",
     "redemptionMethod": "Redemption method",

@@ -86,12 +86,9 @@ test('owner creates, admin approves, buyer buys, cashier redeems and sees own hi
     });
     expect(stored.status).toBe(204);
     media.push({
-      url: upload.asset.url,
+      media_asset_id: upload.asset.id,
       alt: text('Rasm'),
       sort_order: index,
-      width: 1,
-      height: 1,
-      blurhash: '',
     });
   }
 

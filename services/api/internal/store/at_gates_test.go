@@ -41,14 +41,14 @@ func TestAT10ClosedCategoryRefusesADealWithAReason(t *testing.T) {
 	repo := store.NewMerchantDealRepository(env.fixture.pool, store.NewCatalogRepository(env.fixture.pool))
 
 	closed := categoryBySlug(t, env, "automotive")
-	err := repo.References(env.ctx, merchantID, merchant.DealInput{CategoryID: closed, SubcategoryID: subcategoryOf(t, env, closed)})
+	err := repo.References(env.ctx, merchantID, uuid.Nil, merchant.DealInput{CategoryID: closed, SubcategoryID: subcategoryOf(t, env, closed)})
 	var invalid *merchant.InvalidInputError
 	if !errors.As(err, &invalid) || invalid.Code != "category_closed" || invalid.Field != "category_id" {
 		t.Fatalf("closed category: got %v, want category_closed on category_id", err)
 	}
 
 	open := categoryBySlug(t, env, "beauty-and-spas")
-	if err := repo.References(env.ctx, merchantID, merchant.DealInput{CategoryID: open, SubcategoryID: subcategoryOf(t, env, open)}); err != nil {
+	if err := repo.References(env.ctx, merchantID, uuid.Nil, merchant.DealInput{CategoryID: open, SubcategoryID: subcategoryOf(t, env, open)}); err != nil {
 		t.Fatalf("open category: got %v, want no error", err)
 	}
 
@@ -60,7 +60,7 @@ func TestAT10ClosedCategoryRefusesADealWithAReason(t *testing.T) {
 	if _, err := env.fixture.pool.Exec(env.ctx, `UPDATE categories SET deal_creation_enabled=false WHERE id=$1`, open); err != nil {
 		t.Fatal(err)
 	}
-	service := merchant.NewDealService(repo, time.Now)
+	service := merchant.NewDealService(repo, testMediaLinks{}, time.Now)
 	_, err = service.Submit(env.ctx, merchantID, dealID, merchant.Actor{UserID: ownerID, Role: merchant.RoleOwner})
 	if !errors.As(err, &invalid) || invalid.Code != "category_closed" {
 		t.Fatalf("submit after category closure: %v", err)

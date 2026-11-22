@@ -60,8 +60,14 @@ type DealOptionData struct {
 	RedemptionsAllowed int
 }
 
-// DealMediaData is one image that has been uploaded through the media library.
+// DealMediaData is one deal photo. The client names its source; the address, size and blurhash
+// are filled in by the service from the stored photo, never taken from the client.
 type DealMediaData struct {
+	// ID keeps a photo that is already on the deal (update only). Seeded photos that are not library
+	// assets can only be kept this way.
+	ID *uuid.UUID
+	// AssetID picks a ready photo from the merchant's own media library.
+	AssetID   *uuid.UUID
 	URL       string
 	Alt       catalog.Text
 	SortOrder int
@@ -167,8 +173,12 @@ func (in DealInput) Validate() error {
 		return &InvalidInputError{Field: "media", Code: "media_count"}
 	}
 	for _, item := range in.Media {
-		if item.URL == "" || item.Width < 1 || item.Height < 1 || !fullyLocalized(item.Alt) {
+		if !fullyLocalized(item.Alt) {
 			return &InvalidInputError{Field: "media", Code: "invalid_media"}
+		}
+		// A photo names exactly one source; a bare URL is not a library asset.
+		if (item.ID == nil) == (item.AssetID == nil) {
+			return &InvalidInputError{Field: "media", Code: "media_not_found"}
 		}
 	}
 	return nil
@@ -235,8 +245,13 @@ type AuditEntry struct {
 type DealRepository interface {
 	// ReviewStatus returns the business review status; only approved businesses may create deals.
 	ReviewStatus(ctx context.Context, merchantID uuid.UUID) (string, error)
-	// References checks categories, subcategories and locations belong to the expected taxonomy and merchant.
-	References(ctx context.Context, merchantID uuid.UUID, in DealInput) error
+	// References checks categories, subcategories and locations belong to the expected taxonomy and
+	// merchant, and that option ids are options of dealID (uuid.Nil on create, where no id may be sent).
+	References(ctx context.Context, merchantID, dealID uuid.UUID, in DealInput) error
+	// ReadyAssets returns the merchant's ready, non-deleted library assets among ids.
+	ReadyAssets(ctx context.Context, merchantID uuid.UUID, ids []uuid.UUID) ([]Asset, error)
+	// DealPhotos returns the photos currently on an owned deal.
+	DealPhotos(ctx context.Context, merchantID, dealID uuid.UUID) ([]DealMediaData, error)
 	CategoryAllowsDealCreation(ctx context.Context, categoryID uuid.UUID) (bool, error)
 	Insert(ctx context.Context, merchantID uuid.UUID, write DealWrite, audit AuditEntry) (uuid.UUID, error)
 	Update(ctx context.Context, merchantID, dealID uuid.UUID, write DealWrite, audit AuditEntry) error
@@ -248,18 +263,24 @@ type DealRepository interface {
 	Summaries(ctx context.Context, ids []uuid.UUID) ([]catalog.DealSummary, error)
 }
 
-// DealService implements the merchant deal workflow: draft, review and the rules for editing live deals.
-type DealService struct {
-	repo DealRepository
-	now  func() time.Time
+// MediaLinks turns a stored media key into the photo's public address.
+type MediaLinks interface {
+	PublicURL(key string) string
 }
 
-// NewDealService binds the deal workflow to a repository.
-func NewDealService(repo DealRepository, now func() time.Time) *DealService {
+// DealService implements the merchant deal workflow: draft, review and the rules for editing live deals.
+type DealService struct {
+	repo  DealRepository
+	links MediaLinks
+	now   func() time.Time
+}
+
+// NewDealService binds the deal workflow to a repository and the media storage addresses.
+func NewDealService(repo DealRepository, links MediaLinks, now func() time.Time) *DealService {
 	if now == nil {
 		now = time.Now
 	}
-	return &DealService{repo: repo, now: now}
+	return &DealService{repo: repo, links: links, now: now}
 }
 
 // Create stores a new draft. Drafts must already be complete, so they can be submitted without edits.
@@ -271,7 +292,8 @@ func (s *DealService) Create(ctx context.Context, merchantID uuid.UUID, actor Ac
 	if status != "approved" {
 		return catalog.Deal{}, ErrMerchantNotApproved
 	}
-	if err := s.prepare(ctx, merchantID, in); err != nil {
+	in, err = s.prepare(ctx, merchantID, uuid.Nil, in)
+	if err != nil {
 		return catalog.Deal{}, err
 	}
 	write := DealWrite{Input: in, Status: DealDraft, Fingerprint: ReviewFingerprint(in)}
@@ -288,7 +310,8 @@ func (s *DealService) Update(ctx context.Context, merchantID, dealID uuid.UUID, 
 	if err != nil {
 		return catalog.Deal{}, err
 	}
-	if err := s.prepare(ctx, merchantID, in); err != nil {
+	in, err = s.prepare(ctx, merchantID, dealID, in)
+	if err != nil {
 		return catalog.Deal{}, err
 	}
 	fingerprint := ReviewFingerprint(in)
@@ -371,15 +394,99 @@ type DealList struct {
 	Total int64
 }
 
-func (s *DealService) prepare(ctx context.Context, merchantID uuid.UUID, in DealInput) error {
+// prepare checks a save and returns the input with its photos resolved from stored data.
+// dealID is uuid.Nil for a new deal.
+func (s *DealService) prepare(ctx context.Context, merchantID, dealID uuid.UUID, in DealInput) (DealInput, error) {
 	if err := in.Validate(); err != nil {
-		return err
+		return DealInput{}, err
 	}
 	// A deal that has already ended cannot be saved: it would go to review with nothing left to sell.
 	if !in.EndsAt.After(s.now()) {
-		return &InvalidInputError{Field: "ends_at", Code: "in_past"}
+		return DealInput{}, &InvalidInputError{Field: "ends_at", Code: "in_past"}
 	}
-	return s.repo.References(ctx, merchantID, in)
+	if err := s.repo.References(ctx, merchantID, dealID, in); err != nil {
+		return DealInput{}, err
+	}
+	media, err := s.resolveMedia(ctx, merchantID, dealID, in.Media)
+	if err != nil {
+		return DealInput{}, err
+	}
+	in.Media = media
+	return in, nil
+}
+
+// resolveMedia enforces that every photo is either a ready asset of this merchant's media library or
+// a photo already on this deal, and copies the address, size and blurhash from the stored record.
+func (s *DealService) resolveMedia(ctx context.Context, merchantID, dealID uuid.UUID, items []DealMediaData) ([]DealMediaData, error) {
+	notFound := &InvalidInputError{Field: "media", Code: "media_not_found"}
+	assetIDs := make([]uuid.UUID, 0, len(items))
+	keepIDs := 0
+	seen := make(map[uuid.UUID]bool, len(items))
+	for _, item := range items {
+		id := item.AssetID
+		if id == nil {
+			id = item.ID
+			keepIDs++
+		} else {
+			assetIDs = append(assetIDs, *id)
+		}
+		if seen[*id] {
+			return nil, &InvalidInputError{Field: "media", Code: "invalid_media"}
+		}
+		seen[*id] = true
+	}
+	assets := map[uuid.UUID]Asset{}
+	if len(assetIDs) > 0 {
+		found, err := s.repo.ReadyAssets(ctx, merchantID, assetIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range found {
+			if asset.MerchantID == merchantID && asset.Ready {
+				assets[asset.ID] = asset
+			}
+		}
+	}
+	photos := map[uuid.UUID]DealMediaData{}
+	if keepIDs > 0 {
+		if dealID == uuid.Nil {
+			return nil, notFound
+		}
+		current, err := s.repo.DealPhotos(ctx, merchantID, dealID)
+		if err != nil {
+			return nil, err
+		}
+		for _, photo := range current {
+			if photo.ID != nil {
+				photos[*photo.ID] = photo
+			}
+		}
+	}
+	result := make([]DealMediaData, 0, len(items))
+	for _, item := range items {
+		resolved := DealMediaData{Alt: item.Alt, SortOrder: item.SortOrder}
+		if item.AssetID != nil {
+			asset, ok := assets[*item.AssetID]
+			if !ok || asset.Width < 1 || asset.Height < 1 {
+				return nil, notFound
+			}
+			assetID := asset.ID
+			resolved.AssetID = &assetID
+			resolved.URL = s.links.PublicURL(asset.StorageKey)
+			resolved.Width, resolved.Height = asset.Width, asset.Height
+		} else {
+			photo, ok := photos[*item.ID]
+			if !ok {
+				return nil, notFound
+			}
+			photoID := *photo.ID
+			resolved.ID = &photoID
+			resolved.AssetID = photo.AssetID
+			resolved.URL, resolved.Width, resolved.Height, resolved.Blurhash = photo.URL, photo.Width, photo.Height, photo.Blurhash
+		}
+		result = append(result, resolved)
+	}
+	return result, nil
 }
 
 // Actor identifies the signed-in merchant user for the audit trail.

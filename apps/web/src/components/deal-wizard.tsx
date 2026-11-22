@@ -159,7 +159,10 @@ export function stepProblem(
   return null;
 }
 
-function toBody(draft: Draft, media: MediaAsset[]) {
+/** Prefix of a photo that is already on the deal being edited (its deal media id follows). */
+const DEAL_PHOTO = 'deal-';
+
+function toBody(draft: Draft) {
   return {
     slug: draft.slug,
     category_id: draft.categoryId,
@@ -189,13 +192,12 @@ function toBody(draft: Draft, media: MediaAsset[]) {
       sort_order: index,
       is_active: true,
     })),
+    // A library photo is sent by its asset id, a photo already on the deal by its own id. The API
+    // takes the address and size from the stored photo.
     media: draft.mediaIds.map((id, index) => ({
-      url: media.find((asset) => asset.id === id)?.url ?? '',
+      ...(id.startsWith(DEAL_PHOTO) ? { id: id.slice(DEAL_PHOTO.length) } : { media_asset_id: id }),
       alt: localized(draft.title),
       sort_order: index,
-      width: media.find((asset) => asset.id === id)?.width ?? 1,
-      height: media.find((asset) => asset.id === id)?.height ?? 1,
-      blurhash: '',
     })),
   };
 }
@@ -204,6 +206,8 @@ function toBody(draft: Draft, media: MediaAsset[]) {
 function problemFor(code: string | undefined) {
   if (code === 'slug_taken') return 'slugTaken';
   if (code === 'in_past') return 'endsInPast';
+  if (code === 'media_not_found') return 'mediaNotFound';
+  if (code === 'option_not_found') return 'optionNotFound';
   return 'errorGeneric';
 }
 
@@ -310,6 +314,15 @@ export function DealWizard({ categories, locations, media, existing }: Props) {
     router.refresh();
   }
 
+  /** Shows an API refusal. A photo that is no longer in the library sends the merchant back to the photo step. */
+  function refused(code: string | undefined) {
+    if (code === 'media_not_found') {
+      setStep(MEDIA_STEP);
+      void reloadMedia();
+    }
+    setProblem(problemFor(code));
+  }
+
   async function save(submit: boolean) {
     if (busy || done) return;
     const issue =
@@ -322,12 +335,12 @@ export function DealWizard({ categories, locations, media, existing }: Props) {
       const updated = await fetch(`/api/bff/merchant/deals/${existing.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toBody(draft, assets)),
+        body: JSON.stringify(toBody(draft)),
       });
       if (!updated.ok) {
         setBusy(false);
         const body = (await updated.json().catch(() => ({}))) as { code?: string };
-        return setProblem(problemFor(body.code));
+        return refused(body.code);
       }
       const saved = (await updated.json()) as { status: string };
       // A price or terms change on a live deal already sent it back to review.
@@ -339,12 +352,12 @@ export function DealWizard({ categories, locations, media, existing }: Props) {
       const created = await fetch('/api/bff/merchant/deals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toBody(draft, assets)),
+        body: JSON.stringify(toBody(draft)),
       });
       if (!created.ok) {
         setBusy(false);
         const body = (await created.json().catch(() => ({}))) as { code?: string };
-        return setProblem(problemFor(body.code));
+        return refused(body.code);
       }
       id = ((await created.json()) as { id: string }).id;
       setCreatedId(id);

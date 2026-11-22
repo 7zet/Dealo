@@ -190,7 +190,7 @@ const softDeleteUnusedMediaAsset = `-- name: SoftDeleteUnusedMediaAsset :execrow
 UPDATE merchant_media_assets a
 SET deleted_at = now(), updated_at = now()
 WHERE a.id = $1 AND a.merchant_id = $2 AND a.deleted_at IS NULL
-  AND NOT EXISTS (SELECT 1 FROM deal_media dm WHERE dm.url LIKE '%' || a.storage_key)
+  AND NOT EXISTS (SELECT 1 FROM deal_media dm WHERE dm.media_asset_id = a.id)
 `
 
 type SoftDeleteUnusedMediaAssetParams struct {

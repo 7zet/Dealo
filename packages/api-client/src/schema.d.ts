@@ -1970,15 +1970,12 @@ export interface components {
       /** @default 1 */
       redemptions_allowed: number;
     };
+    /** @description One deal photo. Send exactly one of `media_asset_id` (a ready photo from the merchant's own media library) or `id` (a photo already on this deal, kept unchanged; update only). The server takes the address, size and blurhash from the stored photo. Anything else is refused with 422 `media_not_found` on `media`. */
     DealMediaInput: {
       id?: components['schemas']['Uuid'];
-      /** Format: uri */
-      url: string;
+      media_asset_id?: components['schemas']['Uuid'];
       alt: components['schemas']['LocalizedText'];
       sort_order: number;
-      width: number;
-      height: number;
-      blurhash: string;
     };
     ReviewReport: {
       id: components['schemas']['Uuid'];

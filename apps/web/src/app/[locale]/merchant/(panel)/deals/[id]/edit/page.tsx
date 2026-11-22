@@ -93,6 +93,8 @@ export default async function EditDealPage({
     id: location.id,
     label: `${pickText(location.city.name, locale)} — ${location.address}`,
   }));
+  // The deal's own photos keep their deal media id, so a save keeps them unchanged even when they
+  // are not library photos (seeded deals).
   const photos: MediaAsset[] = deal.media.map((item) => ({
     id: `deal-${item.id}`,
     url: item.url,

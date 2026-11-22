@@ -16,9 +16,45 @@ type fakeDealRepo struct {
 	writes  []DealWrite
 	status  string
 	deleted bool
+	// assets is the media library across all merchants; nil means the library photos of validDeal
+	// belong to whichever merchant asks.
+	assets []Asset
+	// photos are the photos already on the deal being edited.
+	photos []DealMediaData
 }
 
-func (f *fakeDealRepo) References(context.Context, uuid.UUID, DealInput) error { return nil }
+func (f *fakeDealRepo) References(context.Context, uuid.UUID, uuid.UUID, DealInput) error { return nil }
+
+// ReadyAssets mirrors the store query: only this merchant's ready assets among ids.
+func (f *fakeDealRepo) ReadyAssets(_ context.Context, merchantID uuid.UUID, ids []uuid.UUID) ([]Asset, error) {
+	library := f.assets
+	if library == nil {
+		for _, id := range libraryIDs {
+			library = append(library, Asset{ID: id, MerchantID: merchantID, StorageKey: id.String() + ".jpg", Width: 1600, Height: 1200, Ready: true})
+		}
+	}
+	var found []Asset
+	for _, asset := range library {
+		for _, id := range ids {
+			if asset.ID == id && asset.MerchantID == merchantID && asset.Ready {
+				found = append(found, asset)
+			}
+		}
+	}
+	return found, nil
+}
+
+func (f *fakeDealRepo) DealPhotos(context.Context, uuid.UUID, uuid.UUID) ([]DealMediaData, error) {
+	return f.photos, nil
+}
+
+type fakeLinks struct{}
+
+func (fakeLinks) PublicURL(key string) string { return "/media/" + key }
+
+// libraryIDs are the media library photos used by validDeal.
+var libraryIDs = []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+
 func (f *fakeDealRepo) CategoryAllowsDealCreation(context.Context, uuid.UUID) (bool, error) {
 	return true, nil
 }
@@ -89,8 +125,8 @@ func validDeal() DealInput {
 			Title: text, OriginalPrice: 200000, DealPrice: 100000, StockTotal: 10, IsActive: true,
 		}},
 		Media: []DealMediaData{
-			{URL: "/media/a.jpg", Alt: text, Width: 800, Height: 600}, {URL: "/media/b.jpg", Alt: text, Width: 800, Height: 600},
-			{URL: "/media/c.jpg", Alt: text, Width: 800, Height: 600},
+			{AssetID: &libraryIDs[0], Alt: text}, {AssetID: &libraryIDs[1], Alt: text, SortOrder: 1},
+			{AssetID: &libraryIDs[2], Alt: text, SortOrder: 2},
 		},
 	}
 }
@@ -134,7 +170,7 @@ func TestStockOnlyEditKeepsReviewFingerprint(t *testing.T) {
 
 func TestLiveDealPriceEditReturnsToReview(t *testing.T) {
 	repo := &fakeDealRepo{record: DealRecord{ID: uuid.New(), Status: DealActive, Fingerprint: ReviewFingerprint(validDeal())}}
-	service := NewDealService(repo, dealClock)
+	service := NewDealService(repo, fakeLinks{}, dealClock)
 	actor := Actor{UserID: uuid.New(), Role: RoleOwner}
 
 	stock := validDeal()
@@ -158,7 +194,7 @@ func TestLiveDealPriceEditReturnsToReview(t *testing.T) {
 
 func TestSubmitAndDeleteRespectWorkflowState(t *testing.T) {
 	repo := &fakeDealRepo{record: DealRecord{ID: uuid.New(), Status: DealActive}}
-	service := NewDealService(repo, dealClock)
+	service := NewDealService(repo, fakeLinks{}, dealClock)
 	actor := Actor{UserID: uuid.New(), Role: RoleManager}
 
 	if _, err := service.Submit(context.Background(), uuid.New(), repo.record.ID, actor); !errors.Is(err, ErrDealStateInvalid) {
@@ -180,7 +216,7 @@ func TestSubmitAndDeleteRespectWorkflowState(t *testing.T) {
 func TestDealThatHasAlreadyEndedIsRefused(t *testing.T) {
 	repo := &fakeDealRepo{record: DealRecord{ID: uuid.New(), Status: DealDraft}}
 	later := func() time.Time { return time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) }
-	service := NewDealService(repo, later)
+	service := NewDealService(repo, fakeLinks{}, later)
 	actor := Actor{UserID: uuid.New(), Role: RoleManager}
 
 	var invalid *InvalidInputError
@@ -193,4 +229,97 @@ func TestDealThatHasAlreadyEndedIsRefused(t *testing.T) {
 	if len(repo.writes) != 0 {
 		t.Fatalf("ended deal was written %d times", len(repo.writes))
 	}
+}
+
+func expectMediaNotFound(t *testing.T, name string, err error) {
+	t.Helper()
+	var invalid *InvalidInputError
+	if !errors.As(err, &invalid) || invalid.Field != "media" || invalid.Code != "media_not_found" {
+		t.Fatalf("%s: got %v, want media_not_found on media", name, err)
+	}
+}
+
+func TestDealMediaComesFromTheMerchantsOwnLibrary(t *testing.T) {
+	merchantID := uuid.New()
+	actor := Actor{UserID: uuid.New(), Role: RoleOwner}
+
+	repo := &fakeDealRepo{}
+	service := NewDealService(repo, fakeLinks{}, dealClock)
+	if _, err := service.Create(context.Background(), merchantID, actor, validDeal()); err != nil {
+		t.Fatalf("own ready media: %v", err)
+	}
+	// The address and size come from the stored asset, not from the client.
+	got := repo.writes[0].Input.Media[0]
+	if got.URL != "/media/"+libraryIDs[0].String()+".jpg" || got.Width != 1600 || got.Height != 1200 ||
+		got.AssetID == nil || *got.AssetID != libraryIDs[0] {
+		t.Fatalf("resolved media = %+v", got)
+	}
+
+	foreign := &fakeDealRepo{assets: []Asset{
+		{ID: libraryIDs[0], MerchantID: uuid.New(), StorageKey: "x.jpg", Width: 10, Height: 10, Ready: true},
+		{ID: libraryIDs[1], MerchantID: merchantID, StorageKey: "y.jpg", Width: 10, Height: 10, Ready: true},
+		{ID: libraryIDs[2], MerchantID: merchantID, StorageKey: "z.jpg", Width: 10, Height: 10, Ready: true},
+	}}
+	_, err := NewDealService(foreign, fakeLinks{}, dealClock).Create(context.Background(), merchantID, actor, validDeal())
+	expectMediaNotFound(t, "another merchant's asset", err)
+
+	pending := &fakeDealRepo{assets: []Asset{
+		{ID: libraryIDs[0], MerchantID: merchantID, StorageKey: "x.jpg"},
+		{ID: libraryIDs[1], MerchantID: merchantID, StorageKey: "y.jpg", Width: 10, Height: 10, Ready: true},
+		{ID: libraryIDs[2], MerchantID: merchantID, StorageKey: "z.jpg", Width: 10, Height: 10, Ready: true},
+	}}
+	_, err = NewDealService(pending, fakeLinks{}, dealClock).Create(context.Background(), merchantID, actor, validDeal())
+	expectMediaNotFound(t, "asset not uploaded yet", err)
+
+	external := validDeal()
+	external.Media[0] = DealMediaData{URL: "https://example.com/cat.jpg", Alt: external.Title, Width: 1, Height: 1}
+	_, err = service.Create(context.Background(), merchantID, actor, external)
+	expectMediaNotFound(t, "external url", err)
+
+	// A photo of the deal itself can only be kept on update; a new deal has none.
+	photoID := uuid.New()
+	kept := validDeal()
+	kept.Media[0] = DealMediaData{ID: &photoID, Alt: kept.Title}
+	_, err = service.Create(context.Background(), merchantID, actor, kept)
+	expectMediaNotFound(t, "photo id on create", err)
+
+	duplicate := validDeal()
+	duplicate.Media[1].AssetID = duplicate.Media[0].AssetID
+	var invalid *InvalidInputError
+	if _, err := service.Create(context.Background(), merchantID, actor, duplicate); !errors.As(err, &invalid) || invalid.Code != "invalid_media" {
+		t.Fatalf("duplicate photo: got %v", err)
+	}
+	if len(repo.writes) != 1 || len(foreign.writes) != 0 || len(pending.writes) != 0 {
+		t.Fatal("a refused save was written")
+	}
+}
+
+// Seeded deals use photos that are not library assets. An edit keeps them by id, unchanged.
+func TestEditKeepsPhotosAlreadyOnTheDeal(t *testing.T) {
+	photoID := uuid.New()
+	seeded := "https://images.unsplash.com/photo-1?auto=format&fit=crop&w=1200&q=80"
+	repo := &fakeDealRepo{
+		record: DealRecord{ID: uuid.New(), Status: DealActive, Fingerprint: ReviewFingerprint(validDeal())},
+		photos: []DealMediaData{{ID: &photoID, URL: seeded, Width: 1200, Height: 900, Blurhash: "L6PZ"}},
+	}
+	service := NewDealService(repo, fakeLinks{}, dealClock)
+	actor := Actor{UserID: uuid.New(), Role: RoleOwner}
+
+	in := validDeal()
+	in.Media[0] = DealMediaData{ID: &photoID, Alt: in.Title}
+	if _, err := service.Update(context.Background(), uuid.New(), repo.record.ID, actor, in); err != nil {
+		t.Fatalf("keep seeded photo: %v", err)
+	}
+	got := repo.writes[0].Input.Media[0]
+	if got.ID == nil || *got.ID != photoID || got.URL != seeded || got.Width != 1200 || got.Blurhash != "L6PZ" || got.AssetID != nil {
+		t.Fatalf("kept photo = %+v", got)
+	}
+	if repo.writes[0].Status != DealActive {
+		t.Fatalf("photo-only edit changed status to %s", repo.writes[0].Status)
+	}
+
+	unknown := uuid.New()
+	in.Media[0] = DealMediaData{ID: &unknown, Alt: in.Title}
+	_, err := service.Update(context.Background(), uuid.New(), repo.record.ID, actor, in)
+	expectMediaNotFound(t, "photo of another deal", err)
 }
