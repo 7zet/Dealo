@@ -375,6 +375,10 @@ func (s *DealService) prepare(ctx context.Context, merchantID uuid.UUID, in Deal
 	if err := in.Validate(); err != nil {
 		return err
 	}
+	// A deal that has already ended cannot be saved: it would go to review with nothing left to sell.
+	if !in.EndsAt.After(s.now()) {
+		return &InvalidInputError{Field: "ends_at", Code: "in_past"}
+	}
 	return s.repo.References(ctx, merchantID, in)
 }
 

@@ -1,8 +1,9 @@
 import { Store } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 
+import { MerchantDeniedNotice } from '@/components/merchant-denied-notice';
 import { MerchantSidebar, type SidebarGroup } from '@/components/merchant-sidebar';
 import { REVIEW_TONES, StatusBadge, type ReviewStatus } from '@/components/merchant-ui';
 import { getMe, SessionRequiredError } from '@/lib/account-api';
@@ -89,11 +90,20 @@ export default async function PanelLayout({
               </div>
             </div>
           </div>
-          <MerchantSidebar items={items} groupLabels={groupLabels} label={panel('panelLabel')} />
+          {/* A member with one section (a cashier: redeem only) is already on it; a menu would only push
+              the work below the fold on a phone. */}
+          {items.length > 1 && (
+            <MerchantSidebar items={items} groupLabels={groupLabels} label={panel('panelLabel')} />
+          )}
         </aside>
         {/* One minmax(0,1fr) column: a wide child (KPI row, table) shrinks to the screen instead of
             widening the page on a phone. */}
-        <div className="grid min-w-0 grid-cols-1 content-start gap-6">{children}</div>
+        <div className="grid min-w-0 grid-cols-1 content-start gap-6">
+          <Suspense fallback={null}>
+            <MerchantDeniedNotice text={panel('deniedNotice')} />
+          </Suspense>
+          {children}
+        </div>
       </div>
     </div>
   );

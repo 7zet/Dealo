@@ -266,6 +266,7 @@ type Querier interface {
 	UpdateReviewReply(ctx context.Context, arg UpdateReviewReplyParams) (UpdateReviewReplyRow, error)
 	UpdateStaffRole(ctx context.Context, arg UpdateStaffRoleParams) (int64, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	// redemptions_allowed 0 means "not sent": an edit that does not mention it keeps the multi-use setting.
 	UpsertDealOption(ctx context.Context, arg UpsertDealOptionParams) error
 	UpsertMerchantDocument(ctx context.Context, arg UpsertMerchantDocumentParams) error
 	UpsertRecentlyViewed(ctx context.Context, arg UpsertRecentlyViewedParams) error

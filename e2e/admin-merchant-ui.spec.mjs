@@ -283,7 +283,7 @@ test('merchant completes all six deal-wizard steps and submits for review', asyn
     `${await createdResponse.text()}\n${createdResponse.request().postData()}`,
   ).toBe(201);
   await expect(page.getByRole('status').first()).toContainText('Tekshiruvga yuborildi');
-  await page.waitForURL(/\/uz\/merchant\/deals$/);
+  await page.waitForURL(/\/uz\/merchant\/deals\?deal=submitted$/);
   const row = page.getByRole('row').filter({ hasText: title });
   await expect(row).toContainText(/Ko‘rib chiqilmoqda/);
 });

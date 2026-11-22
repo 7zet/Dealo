@@ -49,10 +49,12 @@ WHERE d.id = sqlc.arg(id) AND d.merchant_id = sqlc.arg(merchant_id) AND d.delete
 -- name: UpsertDealOption :exec
 INSERT INTO deal_options (id, deal_id, title, original_price, deal_price, stock_total, sort_order, is_active, redemptions_allowed)
 VALUES (sqlc.arg(id), sqlc.arg(deal_id), sqlc.arg(title), sqlc.arg(original_price), sqlc.arg(deal_price),
-        sqlc.arg(stock_total), sqlc.arg(sort_order), sqlc.arg(is_active), sqlc.arg(redemptions_allowed))
+        sqlc.arg(stock_total), sqlc.arg(sort_order), sqlc.arg(is_active), GREATEST(sqlc.arg(redemptions_allowed)::int, 1))
+-- redemptions_allowed 0 means "not sent": an edit that does not mention it keeps the multi-use setting.
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, original_price = EXCLUDED.original_price,
   deal_price = EXCLUDED.deal_price, stock_total = EXCLUDED.stock_total, sort_order = EXCLUDED.sort_order,
-  redemptions_allowed = EXCLUDED.redemptions_allowed,
+  redemptions_allowed = CASE WHEN sqlc.arg(redemptions_allowed)::int > 0 THEN EXCLUDED.redemptions_allowed
+                             ELSE deal_options.redemptions_allowed END,
   is_active = EXCLUDED.is_active, updated_at = now()
 WHERE deal_options.deal_id = EXCLUDED.deal_id;
 

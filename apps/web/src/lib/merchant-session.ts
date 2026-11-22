@@ -9,6 +9,7 @@ import { getMe, requireSession, SessionRequiredError } from './account-api';
 import {
   can,
   fallbackHref,
+  NO_ACCESS_HREF,
   NO_WORKSPACE_HREF,
   type MerchantPermission,
   type PermissionSet,
@@ -67,6 +68,10 @@ export async function requirePanelPermission(
     }
     redirect(`/${locale}${NO_WORKSPACE_HREF}`);
   }
-  if (!access.can(permission)) redirect(`/${locale}${fallbackHref(access.permissions, href)}`);
+  if (!access.can(permission)) {
+    // ?denied=1 lets the panel say why the visitor landed somewhere else instead of a silent jump.
+    const target = fallbackHref(access.permissions, href);
+    redirect(`/${locale}${target}${target === NO_ACCESS_HREF ? '' : '?denied=1'}`);
+  }
   return access;
 }

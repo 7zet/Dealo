@@ -536,7 +536,8 @@
     "panelLabel": "Biznes kabineti",
     "noAccessTitle": "Bu bo‘limga kirish huquqingiz yo‘q",
     "noAccessText": "Bu biznesdagi rolingizga bu bo‘lim kirmaydi. Kerak bo‘lsa, biznes egasiga murojaat qiling.",
-    "noAccessCta": "Mening bo‘limimga o‘tish"
+    "noAccessCta": "Mening bo‘limimga o‘tish",
+    "deniedNotice": "Bu bo‘lim sizning rolingiz uchun yopiq, shuning uchun sizga ochiq bo‘limga o‘tkazildingiz."
   },
   "Deals": {
     "mediaTitle": "Media kutubxona",
@@ -638,7 +639,18 @@
     "status_ended": "Tugagan",
     "status_approved": "Tasdiqlangan",
     "status_archived": "Arxivlangan",
-    "mediaAlt": "Rasm {number}"
+    "mediaAlt": "Rasm {number}",
+    "editTitle": "Aksiyani tahrirlash",
+    "editSubtitle": "Narx, shartlar yoki variantlar o‘zgarsa, faol aksiya qayta tekshiruvga tushadi.",
+    "edit": "Tahrirlash",
+    "saveChanges": "O‘zgarishlarni saqlash",
+    "updated": "O‘zgarishlar saqlandi",
+    "updatedInReview": "O‘zgarishlar saqlandi va aksiya qayta tekshiruvga yuborildi",
+    "slugLocked": "Manzilni aksiya yaratilgandan keyin o‘zgartirib bo‘lmaydi",
+    "maxPerUserRange": "Bir foydalanuvchi uchun limit kamida 1 bo‘lishi kerak",
+    "validDaysRange": "Vaucher amal qilish muddati kamida 1 kun bo‘lishi kerak",
+    "startsInPast": "Boshlanish sanasi o‘tib ketgan. Bugungi yoki keyingi sanani tanlang.",
+    "endsInPast": "Tugash sanasi o‘tib ketgan. Kelajakdagi sanani tanlang."
   },
   "Moderation": {
     "title": "Moderatsiya navbati",

@@ -63,6 +63,9 @@ func (f *fakeDealRepo) Summaries(context.Context, []uuid.UUID) ([]catalog.DealSu
 	return nil, nil
 }
 
+// dealClock keeps the deal fixtures, which end on 2026-12-31, inside their window whatever the real date.
+func dealClock() time.Time { return time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC) }
+
 func validDeal() DealInput {
 	days := 30
 	text := catalog.Text{Uz: "a", Ru: "б", En: "a"}
@@ -131,7 +134,7 @@ func TestStockOnlyEditKeepsReviewFingerprint(t *testing.T) {
 
 func TestLiveDealPriceEditReturnsToReview(t *testing.T) {
 	repo := &fakeDealRepo{record: DealRecord{ID: uuid.New(), Status: DealActive, Fingerprint: ReviewFingerprint(validDeal())}}
-	service := NewDealService(repo, time.Now)
+	service := NewDealService(repo, dealClock)
 	actor := Actor{UserID: uuid.New(), Role: RoleOwner}
 
 	stock := validDeal()
@@ -155,7 +158,7 @@ func TestLiveDealPriceEditReturnsToReview(t *testing.T) {
 
 func TestSubmitAndDeleteRespectWorkflowState(t *testing.T) {
 	repo := &fakeDealRepo{record: DealRecord{ID: uuid.New(), Status: DealActive}}
-	service := NewDealService(repo, time.Now)
+	service := NewDealService(repo, dealClock)
 	actor := Actor{UserID: uuid.New(), Role: RoleManager}
 
 	if _, err := service.Submit(context.Background(), uuid.New(), repo.record.ID, actor); !errors.Is(err, ErrDealStateInvalid) {
@@ -171,5 +174,23 @@ func TestSubmitAndDeleteRespectWorkflowState(t *testing.T) {
 	}
 	if repo.status != DealInReview {
 		t.Fatalf("submitted status = %s", repo.status)
+	}
+}
+
+func TestDealThatHasAlreadyEndedIsRefused(t *testing.T) {
+	repo := &fakeDealRepo{record: DealRecord{ID: uuid.New(), Status: DealDraft}}
+	later := func() time.Time { return time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) }
+	service := NewDealService(repo, later)
+	actor := Actor{UserID: uuid.New(), Role: RoleManager}
+
+	var invalid *InvalidInputError
+	if _, err := service.Create(context.Background(), uuid.New(), actor, validDeal()); !errors.As(err, &invalid) || invalid.Code != "in_past" {
+		t.Fatalf("create ended deal: got %v", err)
+	}
+	if _, err := service.Update(context.Background(), uuid.New(), repo.record.ID, actor, validDeal()); !errors.As(err, &invalid) || invalid.Code != "in_past" {
+		t.Fatalf("update ended deal: got %v", err)
+	}
+	if len(repo.writes) != 0 {
+		t.Fatalf("ended deal was written %d times", len(repo.writes))
 	}
 }

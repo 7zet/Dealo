@@ -15,7 +15,14 @@ const nextConfig: NextConfig = {
       { source: '/api/public/search/suggestions', destination: `${api}/search/suggestions` },
     ];
   },
-  allowedDevOrigins: ['127.0.0.1'],
+  // ngrok tunnels for sharing the dev server.
+  allowedDevOrigins: [
+    '127.0.0.1',
+    '*.ngrok-free.app',
+    '*.ngrok-free.dev',
+    '*.ngrok.app',
+    '*.ngrok.dev',
+  ],
   transpilePackages: ['@dealo/api-client', '@dealo/config', '@dealo/i18n', '@dealo/ui'],
   images: {
     remotePatterns: [

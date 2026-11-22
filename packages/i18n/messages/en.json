@@ -536,7 +536,8 @@
     "panelLabel": "Business panel",
     "noAccessTitle": "You don't have access to this section",
     "noAccessText": "Your role in this business does not include this section. Ask the business owner if you need it.",
-    "noAccessCta": "Go to my section"
+    "noAccessCta": "Go to my section",
+    "deniedNotice": "Your role does not have access to that section, so you were taken to one you can use."
   },
   "Deals": {
     "mediaTitle": "Media library",
@@ -638,7 +639,18 @@
     "status_ended": "Ended",
     "status_approved": "Approved",
     "status_archived": "Archived",
-    "mediaAlt": "Photo {number}"
+    "mediaAlt": "Photo {number}",
+    "editTitle": "Edit deal",
+    "editSubtitle": "Changing the price, terms or options of a live deal sends it back to review.",
+    "edit": "Edit",
+    "saveChanges": "Save changes",
+    "updated": "Changes saved",
+    "updatedInReview": "Changes saved and the deal was sent back to review",
+    "slugLocked": "The address cannot be changed after the deal is created",
+    "maxPerUserRange": "The per-customer limit must be at least 1",
+    "validDaysRange": "The voucher must be valid for at least 1 day",
+    "startsInPast": "The start date has passed. Choose today or a later date.",
+    "endsInPast": "The end date has passed. Choose a future date."
   },
   "Moderation": {
     "title": "Moderation queue",

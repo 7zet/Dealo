@@ -74,6 +74,37 @@ describe('deal wizard steps', () => {
       ),
     ).toBeNull();
   });
+
+  it('refuses a per-customer limit below one', () => {
+    const details = draft({
+      highlights: [text, text, text],
+      terms: text,
+      redemptionInstructions: text,
+    });
+    expect(stepProblem(3, { ...details, maxPerUser: 0 })).toBe('maxPerUserRange');
+    expect(stepProblem(3, { ...details, maxPerUser: Number.NaN })).toBe('maxPerUserRange');
+    expect(stepProblem(3, { ...details, maxPerUser: 2 })).toBeNull();
+  });
+
+  it('refuses dates that have passed, but lets an edit keep its original start', () => {
+    const now = new Date('2026-11-22T12:00:00+05:00');
+    const schedule = draft({ locationIds: ['loc'], validDays: 30 });
+    const past = { ...schedule, startsAt: '2026-11-20T10:00', endsAt: '2026-11-21T10:00' };
+    expect(stepProblem(4, past, { now })).toBe('startsInPast');
+    expect(
+      stepProblem(
+        4,
+        { ...past, startsAt: '2026-11-22T09:00', endsAt: '2026-11-22T11:00' },
+        { now },
+      ),
+    ).toBe('endsInPast');
+    const live = { ...schedule, startsAt: '2026-11-01T10:00', endsAt: '2026-12-31T10:00' };
+    expect(stepProblem(4, live, { now })).toBe('startsInPast');
+    expect(stepProblem(4, live, { now, editing: true })).toBeNull();
+    expect(stepProblem(4, { ...live, validDays: 0 }, { now, editing: true })).toBe(
+      'validDaysRange',
+    );
+  });
 });
 
 describe('ConfirmRemoveButton', () => {

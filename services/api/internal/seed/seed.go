@@ -323,6 +323,9 @@ func populate(ctx context.Context, tx pgx.Tx, data seedData, images []imageSeed)
 			}
 		}
 	}
+	if err := seedCashierVouchers(ctx, tx, deals, userIDs[0]); err != nil {
+		return fmt.Errorf("seed cashier vouchers: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO homepage_sections(key,title,type,deal_ids,sort_order) VALUES('featured',$1,'deals',$2,1),('popular',$1,'deals',$2,2),('limited',$1,'deals',$2,3)`, description, []string{deals[0].ID, deals[1].ID, deals[2].ID}); err != nil {
 		return err
 	}
@@ -437,4 +440,61 @@ var tashkentSpots = []tashkentSpot{
 // jitter moves a branch up to ~400 m from its street point, the same way on every run.
 func jitter(i, j, axis int) float64 {
 	return float64((i*13+j*7+axis*5)%9-4) / 1000
+}
+
+// cashierVouchers are unredeemed vouchers of the test user (+998900000001) with fixed codes, so the cashier
+// flow can be tested right after a reseed without buying anything. Deal 0 belongs to merchant 1 (the cashier's
+// business); deal 1 belongs to merchant 2 and checks that a cashier cannot redeem another business's voucher.
+var cashierVouchers = []struct {
+	Code    string
+	Deal    int
+	Allowed int
+	Expired bool
+}{
+	{"TEST-0001", 0, 1, false},
+	{"TEST-0002", 0, 1, false},
+	{"TEST-0003", 0, 1, false},
+	{"MULT-0003", 0, 3, false},
+	{"EXPD-0001", 0, 1, true},
+	{"OTHR-0001", 1, 1, false},
+}
+
+// seedCashierVouchers sells the cashierVouchers as paid orders. The sold counters and the ledger move
+// exactly as a real purchase would move them.
+func seedCashierVouchers(ctx context.Context, tx pgx.Tx, deals []dealSeed, userID string) error {
+	queries := sqlc.New(tx)
+	for i, v := range cashierVouchers {
+		deal := deals[v.Deal]
+		status, from, until := "active", "now()-interval '1 day'", "now()+interval '30 days'"
+		if v.Expired {
+			status, from, until = "expired", "now()-interval '40 days'", "now()-interval '1 day'"
+		}
+		var orderID, itemID string
+		if err := tx.QueryRow(ctx, `INSERT INTO orders(number,user_id,status,subtotal,total,idempotency_key,paid_at) VALUES('GR-2026-' || lpad(nextval('order_number_seq')::text, 6, '0'),$1,'paid',$2,$2,$3,now()-interval '1 day') RETURNING id`, userID, deal.Price, fmt.Sprintf("seed-cashier-order-%02d", i+1)).Scan(&orderID); err != nil {
+			return err
+		}
+		if err := tx.QueryRow(ctx, `INSERT INTO order_items(order_id,deal_id,deal_option_id,title_snapshot,unit_price_snapshot,original_price_snapshot,terms_snapshot,quantity) SELECT $1,$2,$3,$4,$5,o.original_price,d.terms,1 FROM deal_options o JOIN deals d ON d.id=o.deal_id WHERE o.id=$3 RETURNING id`, orderID, deal.ID, deal.OptionID, deal.Title, deal.Price).Scan(&itemID); err != nil {
+			return err
+		}
+		var voucherID string
+		if err := tx.QueryRow(ctx, `INSERT INTO vouchers(order_item_id,user_id,deal_id,deal_option_id,merchant_id,code,qr_token,status,valid_from,valid_until,redemptions_allowed) VALUES($1,$2,$3,$4,$5,$6,$7,$8::voucher_status,`+from+`,`+until+`,$9) RETURNING id`, itemID, userID, deal.ID, deal.OptionID, deal.MerchantID, v.Code, "seed-signed-token-"+v.Code, status, v.Allowed).Scan(&voucherID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE deal_options SET stock_sold = stock_sold + 1 WHERE id = $1`, deal.OptionID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE deals SET sold_count = sold_count + 1 WHERE id = $1`, deal.ID); err != nil {
+			return err
+		}
+		if _, err := store.PostEntry(ctx, queries, ledger.PaymentReceived(itemID, deal.MerchantID, deal.Price)); err != nil {
+			return err
+		}
+		// An expired voucher has already moved its value to breakage, as the expiry job would have done.
+		if v.Expired {
+			if _, err := store.PostEntry(ctx, queries, ledger.Expired(voucherID, deal.MerchantID, deal.Price)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

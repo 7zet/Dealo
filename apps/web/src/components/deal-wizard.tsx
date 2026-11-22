@@ -6,6 +6,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 
 import type { MediaAsset } from '@/components/merchant-media-library';
+import { fromTashkentInput, startOfTashkentDay } from '@/lib/dates';
 import { formatMoney, tiyinFromSom } from '@dealo/ui';
 
 type Localized = { uz: string; ru: string; en: string };
@@ -15,7 +16,15 @@ type Props = {
   categories: { id: string; label: string; subcategories: { id: string; label: string }[] }[];
   locations: Location[];
   media: MediaAsset[];
+  /** An existing deal opened for editing. Without it the wizard creates a new deal. */
+  existing?: ExistingDeal;
 };
+
+/** A saved deal loaded into the wizard. Its photos are offered next to the library, already picked. */
+export type ExistingDeal = { id: string; status: string; draft: Draft; photos: MediaAsset[] };
+
+/** Statuses from which a deal can be sent to moderation (the API refuses the rest). */
+const SUBMITTABLE = new Set(['draft', 'changes_requested']);
 
 type Draft = {
   slug: string;
@@ -39,7 +48,15 @@ type Draft = {
   validDays: number;
 };
 
-type DraftOption = { title: Localized; originalPrice: string; dealPrice: string; stock: string };
+// id is set for an option that already exists, so an edit updates it instead of replacing it: sold
+// vouchers keep pointing at the same option.
+type DraftOption = {
+  id?: string;
+  title: Localized;
+  originalPrice: string;
+  dealPrice: string;
+  stock: string;
+};
 
 const empty: Localized = { uz: '', ru: '', en: '' };
 const emptyOption: DraftOption = { title: empty, originalPrice: '', dealPrice: '', stock: '' };
@@ -93,8 +110,15 @@ function inLocale(text: Localized, locale: Locale) {
   return text[locale].trim() || text.uz.trim() || text.ru.trim() || text.en.trim();
 }
 
-/** Returns the first problem in the current step as a translation key, or null when the step is complete. */
-export function stepProblem(step: number, draft: Draft): string | null {
+/**
+ * Returns the first problem in the current step as a translation key, or null when the step is complete.
+ * A new deal must not start in the past; an edited deal may keep the start it already had.
+ */
+export function stepProblem(
+  step: number,
+  draft: Draft,
+  { editing = false, now = new Date() }: { editing?: boolean; now?: Date } = {},
+): string | null {
   if (step === 0) {
     if (draft.slug.trim() === '') return 'slugRequired';
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.slug)) return 'invalidSlug';
@@ -118,11 +142,19 @@ export function stepProblem(step: number, draft: Draft): string | null {
   if (step === 3) {
     if (draft.highlights.length < 3 || !draft.highlights.every(filled)) return 'highlights';
     if (!filled(draft.terms) || !filled(draft.redemptionInstructions)) return 'required';
+    if (!Number.isInteger(draft.maxPerUser) || draft.maxPerUser < 1) return 'maxPerUserRange';
   }
   if (step === 4) {
     if (draft.locationIds.length === 0) return 'locationRequired';
-    if (!draft.startsAt || !draft.endsAt || new Date(draft.endsAt) <= new Date(draft.startsAt))
+    // Deal times are Tashkent times, whatever the browser's own time zone.
+    const startsAt = fromTashkentInput(draft.startsAt);
+    const endsAt = fromTashkentInput(draft.endsAt);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt)
       return 'schedule';
+    // A new deal may start today but not on a day that has passed.
+    if (!editing && startsAt < startOfTashkentDay(now)) return 'startsInPast';
+    if (endsAt <= now) return 'endsInPast';
+    if (!Number.isInteger(draft.validDays) || draft.validDays < 1) return 'validDaysRange';
   }
   return null;
 }
@@ -142,13 +174,14 @@ function toBody(draft: Draft, media: MediaAsset[]) {
     redemption_method: draft.redemptionMethod,
     redemption_instructions: localized(draft.redemptionInstructions),
     booking_required: false,
-    starts_at: new Date(draft.startsAt).toISOString(),
-    ends_at: new Date(draft.endsAt).toISOString(),
+    starts_at: fromTashkentInput(draft.startsAt).toISOString(),
+    ends_at: fromTashkentInput(draft.endsAt).toISOString(),
     voucher_valid_days: draft.validDays,
     voucher_valid_until: null,
     max_per_user: draft.maxPerUser,
     location_ids: draft.locationIds,
     options: draft.options.map((o, index) => ({
+      ...(o.id ? { id: o.id } : {}),
       title: localized(o.title),
       original_price: tiyinFromSom(whole(o.originalPrice) ?? 0),
       deal_price: tiyinFromSom(whole(o.dealPrice) ?? 0),
@@ -165,6 +198,13 @@ function toBody(draft: Draft, media: MediaAsset[]) {
       blurhash: '',
     })),
   };
+}
+
+/** Translation key for an API refusal of a deal save. */
+function problemFor(code: string | undefined) {
+  if (code === 'slug_taken') return 'slugTaken';
+  if (code === 'in_past') return 'endsInPast';
+  return 'errorGeneric';
 }
 
 function LocalizedFields({
@@ -197,19 +237,29 @@ function LocalizedFields({
 export type { Draft as DealDraft };
 export { initial as initialDealDraft };
 
-export function DealWizard({ categories, locations, media }: Props) {
+/** The wizard's photo choices: the saved deal's own photos first, then the library without duplicates. */
+function mergeAssets(photos: MediaAsset[], library: MediaAsset[]) {
+  return [
+    ...photos,
+    ...library.filter((asset) => !photos.some((photo) => photo.url === asset.url)),
+  ];
+}
+
+export function DealWizard({ categories, locations, media, existing }: Props) {
   const t = useTranslations('Deals');
   const locale = useLocale() as Locale;
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft>(initial);
+  const editing = existing !== undefined;
+  const [draft, setDraft] = useState<Draft>(existing?.draft ?? initial);
   const [problem, setProblem] = useState<string | null>(null);
-  const [success, setSuccess] = useState<'submitted' | 'saved' | null>(null);
+  const [success, setSuccess] = useState<'submitted' | 'saved' | 'updated' | null>(null);
   const [busy, setBusy] = useState(false);
   // The deal is created once. A failed submit keeps its id, so a retry only submits and never creates
   // a second copy.
-  const [createdId, setCreatedId] = useState<string | null>(null);
-  const [assets, setAssets] = useState<MediaAsset[]>(media);
+  const [createdId, setCreatedId] = useState<string | null>(existing?.id ?? null);
+  const photos = existing?.photos ?? [];
+  const [assets, setAssets] = useState<MediaAsset[]>(mergeAssets(photos, media));
   const [mediaStale, setMediaStale] = useState(false);
 
   const subcategories = categories.find((c) => c.id === draft.categoryId)?.subcategories ?? [];
@@ -226,11 +276,12 @@ export function DealWizard({ categories, locations, media }: Props) {
     const response = await fetch('/api/bff/merchant/media').catch(() => null);
     if (!response?.ok) return setMediaStale(true);
     const list = (await response.json()) as { items: MediaAsset[] };
-    setAssets(list.items);
+    const next = mergeAssets(photos, list.items);
+    setAssets(next);
     // A photo deleted on the media page drops out of the selection.
     setDraft((current) => ({
       ...current,
-      mediaIds: current.mediaIds.filter((id) => list.items.some((asset) => asset.id === id)),
+      mediaIds: current.mediaIds.filter((id) => next.some((asset) => asset.id === id)),
     }));
   }
 
@@ -247,19 +298,44 @@ export function DealWizard({ categories, locations, media }: Props) {
   }
 
   function next() {
-    const issue = stepProblem(step, draft);
+    const issue = stepProblem(step, draft, { editing });
     setProblem(issue);
     if (!issue) go(Math.min(step + 1, STEPS.length - 1));
   }
 
+  /** Where the deal list shows the outcome, so the merchant sees it after the redirect too. */
+  function finish(outcome: 'submitted' | 'saved' | 'updated' | 'review') {
+    setSuccess(outcome === 'review' ? 'updated' : outcome);
+    router.push(`/merchant/deals?deal=${outcome}`);
+    router.refresh();
+  }
+
   async function save(submit: boolean) {
     if (busy || done) return;
-    const issue = [0, 1, 2, 3, 4].map((s) => stepProblem(s, draft)).find(Boolean) ?? null;
+    const issue =
+      [0, 1, 2, 3, 4].map((s) => stepProblem(s, draft, { editing })).find(Boolean) ?? null;
     setProblem(issue);
     if (issue) return;
     setBusy(true);
     let id = createdId;
-    if (!id) {
+    if (existing) {
+      const updated = await fetch(`/api/bff/merchant/deals/${existing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toBody(draft, assets)),
+      });
+      if (!updated.ok) {
+        setBusy(false);
+        const body = (await updated.json().catch(() => ({}))) as { code?: string };
+        return setProblem(problemFor(body.code));
+      }
+      const saved = (await updated.json()) as { status: string };
+      // A price or terms change on a live deal already sent it back to review.
+      if (!submit)
+        return finish(
+          saved.status === 'in_review' && existing.status !== 'in_review' ? 'review' : 'updated',
+        );
+    } else if (!id) {
       const created = await fetch('/api/bff/merchant/deals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,7 +344,7 @@ export function DealWizard({ categories, locations, media }: Props) {
       if (!created.ok) {
         setBusy(false);
         const body = (await created.json().catch(() => ({}))) as { code?: string };
-        return setProblem(body.code === 'slug_taken' ? 'slugTaken' : 'errorGeneric');
+        return setProblem(problemFor(body.code));
       }
       id = ((await created.json()) as { id: string }).id;
       setCreatedId(id);
@@ -281,10 +357,10 @@ export function DealWizard({ categories, locations, media }: Props) {
       }
     }
     // The buttons stay disabled from here on: the deal exists, so a second click must not resend it.
-    setSuccess(submit ? 'submitted' : 'saved');
-    router.push('/merchant/deals');
-    router.refresh();
+    finish(submit ? 'submitted' : 'saved');
   }
+
+  const canSubmit = !existing || SUBMITTABLE.has(existing.status);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -306,10 +382,17 @@ export function DealWizard({ categories, locations, media }: Props) {
             <label className="grid gap-1 text-sm">
               {t('slug')}
               <input
-                className={inputClass}
+                className={`${inputClass} disabled:bg-page disabled:text-ink-muted`}
                 value={draft.slug}
+                disabled={editing}
+                aria-describedby={editing ? 'deal-slug-locked' : undefined}
                 onChange={(e) => update({ slug: e.target.value })}
               />
+              {editing && (
+                <span id="deal-slug-locked" className="text-ink-muted">
+                  {t('slugLocked')}
+                </span>
+              )}
             </label>
             <label className="grid gap-1 text-sm">
               {t('category')}
@@ -538,8 +621,8 @@ export function DealWizard({ categories, locations, media }: Props) {
                 type="number"
                 min={1}
                 className={inputClass}
-                value={draft.maxPerUser}
-                onChange={(e) => update({ maxPerUser: Number(e.target.value) })}
+                value={Number.isNaN(draft.maxPerUser) ? '' : draft.maxPerUser}
+                onChange={(e) => update({ maxPerUser: e.target.valueAsNumber })}
               />
             </label>
           </div>
@@ -590,8 +673,8 @@ export function DealWizard({ categories, locations, media }: Props) {
                 type="number"
                 min={1}
                 className={inputClass}
-                value={draft.validDays}
-                onChange={(e) => update({ validDays: Number(e.target.value) })}
+                value={Number.isNaN(draft.validDays) ? '' : draft.validDays}
+                onChange={(e) => update({ validDays: e.target.valueAsNumber })}
               />
             </label>
           </div>
@@ -654,18 +737,24 @@ export function DealWizard({ categories, locations, media }: Props) {
                 type="button"
                 disabled={busy || done}
                 onClick={() => save(false)}
-                className="rounded-control-ui border border-border px-5 py-3 disabled:opacity-60"
+                className={
+                  canSubmit
+                    ? 'rounded-control-ui border border-border px-5 py-3 disabled:opacity-60'
+                    : 'rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60'
+                }
               >
-                {t('saveDraft')}
+                {editing ? t('saveChanges') : t('saveDraft')}
               </button>
-              <button
-                type="button"
-                disabled={busy || done}
-                onClick={() => save(true)}
-                className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60"
-              >
-                {t('submitReview')}
-              </button>
+              {canSubmit && (
+                <button
+                  type="button"
+                  disabled={busy || done}
+                  onClick={() => save(true)}
+                  className="rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface disabled:opacity-60"
+                >
+                  {t('submitReview')}
+                </button>
+              )}
             </>
           )}
         </div>

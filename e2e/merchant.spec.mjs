@@ -191,9 +191,11 @@ test('owner creates, admin approves, buyer buys, cashier redeems and sees own hi
   await expect(page.getByRole('row').filter({ hasText: 'E2E aksiya' }).first()).toBeVisible();
 
   // Cashiers have no payouts or platform-finance access, including direct URLs: the panel sends them
-  // back to the one section they may use, and the platform finance desk does not exist for them.
+  // back to the one section they may use and says why, and the platform finance desk does not exist
+  // for them.
   await page.goto(`${WEB}/uz/merchant/payouts`);
-  await expect(page).toHaveURL(/\/uz\/merchant\/redeem$/);
+  await expect(page).toHaveURL(/\/uz\/merchant\/redeem\?denied=1$/);
+  await expect(page.getByRole('status').filter({ hasText: /rolingiz uchun yopiq/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Vaucher tekshirish/ })).toBeVisible();
   await page.goto(`${WEB}/uz/admin/finance`);
   await expect(page.getByRole('heading', { name: /Bu sahifani topa olmadik/ })).toBeVisible();

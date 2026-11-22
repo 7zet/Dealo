@@ -231,7 +231,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section aria-labelledby="orders-title" className="grid min-w-0 content-start gap-3">
+        <section aria-labelledby="orders-title" className="grid min-w-0 grid-cols-1 content-start gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 id="orders-title" className="font-semibold text-ink">
               {nav('ordersTitle')}
@@ -275,7 +275,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           )}
         </section>
 
-        <section aria-labelledby="pending-title" className="grid min-w-0 content-start gap-3">
+        <section aria-labelledby="pending-title" className="grid min-w-0 grid-cols-1 content-start gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 id="pending-title" className="font-semibold text-ink">
               {t('pendingDeals')}

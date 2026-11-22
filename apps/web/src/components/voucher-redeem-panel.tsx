@@ -99,6 +99,7 @@ export function VoucherRedeemPanel({
   const t = useTranslations('Redeem');
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState('');
   const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
   const [voucher, setVoucher] = useState<Voucher | null>(null);
@@ -137,6 +138,11 @@ export function VoucherRedeemPanel({
     }
     void lookup({ code: formatted });
   }
+
+  // The page exists to take a code: the cursor waits in the field, so a cashier can type right away.
+  useEffect(() => {
+    codeRef.current?.focus({ preventScroll: true });
+  }, []);
 
   // The camera runs only while the scan mode is on, and stops as soon as a code is read.
   useEffect(() => {
@@ -187,20 +193,6 @@ export function VoucherRedeemPanel({
   return (
     <div className="grid gap-6">
       <section className="grid max-w-xl gap-3">
-        <label className={labelClass}>
-          <span className="text-sm">{t('locationLabel')}</span>
-          <select
-            className={inputClass}
-            value={locationId}
-            onChange={(event) => setLocationId(event.target.value)}
-          >
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.label}
-              </option>
-            ))}
-          </select>
-        </label>
         <form
           className="grid gap-3"
           noValidate
@@ -212,6 +204,7 @@ export function VoucherRedeemPanel({
           <label className={labelClass}>
             <span className="text-sm">{t('codeLabel')}</span>
             <input
+              ref={codeRef}
               className={`${inputClass} font-semibold tracking-widest`}
               placeholder="XXXX-XXXX"
               autoCapitalize="characters"
@@ -249,6 +242,30 @@ export function VoucherRedeemPanel({
             muted
             playsInline
           />
+        )}
+        {/* The branch rarely changes during a shift, so it sits under the code field. A single branch
+            is shown as text: there is nothing to choose. */}
+        {locations.length > 1 ? (
+          <label className={labelClass}>
+            <span className="text-sm">{t('locationLabel')}</span>
+            <select
+              className={inputClass}
+              value={locationId}
+              onChange={(event) => setLocationId(event.target.value)}
+            >
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          locations[0] && (
+            <p className="text-sm text-ink-muted">
+              {t('locationLabel')}: <span className="text-ink">{locations[0].label}</span>
+            </p>
+          )
         )}
       </section>
 

@@ -484,10 +484,11 @@ func (q *Queries) UpdateOwnedDeal(ctx context.Context, arg UpdateOwnedDealParams
 const upsertDealOption = `-- name: UpsertDealOption :exec
 INSERT INTO deal_options (id, deal_id, title, original_price, deal_price, stock_total, sort_order, is_active, redemptions_allowed)
 VALUES ($1, $2, $3, $4, $5,
-        $6, $7, $8, $9)
+        $6, $7, $8, GREATEST($9::int, 1))
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, original_price = EXCLUDED.original_price,
   deal_price = EXCLUDED.deal_price, stock_total = EXCLUDED.stock_total, sort_order = EXCLUDED.sort_order,
-  redemptions_allowed = EXCLUDED.redemptions_allowed,
+  redemptions_allowed = CASE WHEN $9::int > 0 THEN EXCLUDED.redemptions_allowed
+                             ELSE deal_options.redemptions_allowed END,
   is_active = EXCLUDED.is_active, updated_at = now()
 WHERE deal_options.deal_id = EXCLUDED.deal_id
 `
@@ -504,6 +505,7 @@ type UpsertDealOptionParams struct {
 	RedemptionsAllowed int32       `json:"redemptions_allowed"`
 }
 
+// redemptions_allowed 0 means "not sent": an edit that does not mention it keeps the multi-use setting.
 func (q *Queries) UpsertDealOption(ctx context.Context, arg UpsertDealOptionParams) error {
 	_, err := q.db.Exec(ctx, upsertDealOption,
 		arg.ID,
