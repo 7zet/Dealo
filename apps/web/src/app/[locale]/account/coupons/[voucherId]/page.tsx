@@ -6,11 +6,13 @@ import { notFound } from 'next/navigation';
 
 import { AccountShell } from '@/components/account-shell';
 import { ReviewForm } from '@/components/review-form';
+import { Link } from '@/i18n/navigation';
 import { accountGetOrNull, loadForVisitor } from '@/lib/account-api';
 import { pickText } from '@/lib/localized';
 
 type Voucher = components['schemas']['Voucher'];
 type LocalizedText = components['schemas']['LocalizedText'];
+type MyReviewList = components['schemas']['MyReviewList'];
 
 /**
  * Orders placed before terms were snapshotted were backfilled with this placeholder (migrations
@@ -46,6 +48,13 @@ export default async function VoucherPage({
     ? await QRCode.toDataURL(voucher.qr_token, { margin: 1, width: 320 })
     : null;
   const terms = realTerms(voucher.terms_snapshot, locale);
+  // A used voucher takes one review: show the one already written instead of a form that would fail.
+  const review =
+    voucher.status === 'redeemed'
+      ? ((await accountGetOrNull<MyReviewList>('/me/reviews'))?.items.find(
+          (item) => item.voucher_id === voucher.id,
+        ) ?? null)
+      : null;
   const statusLabel = {
     active: t('voucherActive'),
     redeemed: t('voucherRedeemed'),
@@ -75,7 +84,11 @@ export default async function VoucherPage({
             <p className="text-sm text-ink-muted">{t('brightnessHint')}</p>
             <p className="text-sm text-ink-muted">
               {t('validUntil', {
-                date: format.dateTime(new Date(voucher.valid_until), { dateStyle: 'medium' }),
+                date: format.dateTime(new Date(voucher.valid_until), {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                  timeZone: 'Asia/Tashkent',
+                }),
               })}
             </p>
           </>
@@ -127,7 +140,21 @@ export default async function VoucherPage({
       </article>
       {voucher.status === 'redeemed' && (
         <div className="mx-auto mt-8 max-w-md">
-          <ReviewForm voucherId={voucher.id} locale={locale} />
+          {review ? (
+            <section className="grid gap-2 rounded-card border border-border bg-surface p-4">
+              <h3 className="font-semibold text-ink">{t('reviewWritten')}</h3>
+              <p aria-label={t('reviewRating', { rating: review.rating })} className="text-brand">
+                {'★'.repeat(review.rating)}
+                <span className="text-ink-faint">{'★'.repeat(5 - review.rating)}</span>
+              </p>
+              <p className="text-sm whitespace-pre-line text-ink-muted">{review.text}</p>
+              <Link className="text-sm font-semibold text-brand" href="/account/reviews">
+                {t('reviewManage')}
+              </Link>
+            </section>
+          ) : (
+            <ReviewForm voucherId={voucher.id} locale={locale} />
+          )}
         </div>
       )}
     </AccountShell>

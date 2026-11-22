@@ -65,7 +65,7 @@ func newTestRouter(t *testing.T, token string, invalidations *int) http.Handler 
 		Slug:     "spa-day",
 		Status:   "active",
 		Title:    catalog.Text{Uz: "Spa kuni", Ru: "СПА", En: "Spa day"},
-		Merchant: catalog.Merchant{ID: uuid.New(), Slug: "lotus", DisplayName: "Lotus"},
+		Merchant: catalog.Merchant{ID: uuid.New(), Slug: "lotus", DisplayName: "Lotus", CommissionBPS: 1500},
 		Category: catalog.Category{ID: uuid.New(), Slug: "beauty-and-spas", Icon: "spa"},
 		Options: []catalog.Option{{
 			ID:            uuid.New(),
@@ -149,6 +149,16 @@ func TestCatalogEndpointsMapDomainResultsAndProblems(t *testing.T) {
 		recorder := send(t, router, http.MethodGet, "/api/v1/deals?page=abc", nil)
 		if recorder.Code != http.StatusBadRequest || problemCode(t, recorder) != "invalid_parameter" {
 			t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("public deal detail hides the merchant commission", func(t *testing.T) {
+		recorder := send(t, router, http.MethodGet, "/api/v1/deals/spa-day", nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+		}
+		if strings.Contains(recorder.Body.String(), "commission_bps") {
+			t.Errorf("commission leaked: %s", recorder.Body.String())
 		}
 	})
 

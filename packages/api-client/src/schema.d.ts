@@ -1613,7 +1613,7 @@ export interface components {
       status: 'active' | 'suspended';
       rating_avg: number;
       rating_count: number;
-      commission_bps: number;
+      commission_bps?: number;
       locations?: components['schemas']['MerchantLocation'][];
       /** @enum {string} */
       review_status?:

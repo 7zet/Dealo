@@ -75,7 +75,7 @@ func (a *MerchantAPI) RegisterMerchant(w http.ResponseWriter, r *http.Request) {
 		ReviewStatus:  reviewStatusPtr(created.ReviewStatus),
 		RatingAvg:     0,
 		RatingCount:   0,
-		CommissionBps: 1500,
+		CommissionBps: intPtr(1500),
 	})
 }
 
@@ -113,7 +113,7 @@ func (a *MerchantAPI) SubmitMerchantForReview(w http.ResponseWriter, r *http.Req
 		Phone:         submitted.Phone,
 		Status:        gen.MerchantStatus(submitted.Status),
 		ReviewStatus:  reviewStatusPtr(submitted.ReviewStatus),
-		CommissionBps: 1500,
+		CommissionBps: intPtr(1500),
 	})
 }
 
@@ -137,6 +137,9 @@ func (a *MerchantAPI) failRegistration(w http.ResponseWriter, r *http.Request, e
 		writeProblem(w, r, http.StatusInternalServerError, "internal_error", nil, nil)
 	}
 }
+
+// intPtr returns a pointer to value, for optional integer fields in responses.
+func intPtr(value int) *int { return &value }
 
 func reviewStatusPtr(value string) *gen.MerchantReviewStatus {
 	status := gen.MerchantReviewStatus(value)

@@ -25,7 +25,9 @@ export function PurchasePanel({
   const [quantity, setQuantity] = useState(1);
   const option = deal.options.find((item) => item.id === selected)!;
   const remaining = option.stock_total - option.stock_sold - option.stock_reserved;
-  const unavailable = deal.status !== 'active' || remaining < 1;
+  // A category closed for sale (e.g. outside the pilot) keeps its deal pages but takes no orders.
+  const salesPaused = !deal.category.purchasable;
+  const unavailable = deal.status !== 'active' || remaining < 1 || salesPaused;
   const savings = (option.original_price.amount - option.deal_price.amount) * quantity;
   // The stepper stops at the lower of the per-customer limit and the stock left; the hint says which.
   const maxQuantity = Math.max(1, Math.min(deal.max_per_user, remaining));
@@ -110,7 +112,13 @@ export function PurchasePanel({
         onClick={buy}
         type="button"
       >
-        {unavailable ? (deal.status === 'ended' ? t('ended') : t('soldOut')) : t('buyNow')}
+        {unavailable
+          ? deal.status === 'ended'
+            ? t('ended')
+            : salesPaused
+              ? t('salesPaused')
+              : t('soldOut')
+          : t('buyNow')}
       </button>
       <div className="mt-3 flex items-center justify-between">
         <span className="text-small font-semibold">{t('quantity')}</span>

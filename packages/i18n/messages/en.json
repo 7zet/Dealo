@@ -138,7 +138,8 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "salesPaused": "Sales are paused for now"
   },
   "Coupons": {
     "title": "Vouchers",
@@ -349,7 +350,7 @@
     "emptyOrders": "No orders yet.",
     "emptySaved": "No saved deals yet.",
     "emptyReviews": "No reviews yet.",
-    "validUntil": "Valid until {date}",
+    "validUntil": "Valid until {date} (Tashkent time)",
     "codeLabel": "Code",
     "merchantLabel": "Business",
     "qrAlt": "Voucher QR code",
@@ -405,7 +406,11 @@
     "usedAt": "Used on {date}",
     "voucherInactiveTitle": "This voucher can no longer be used",
     "unitPrice": "Price per unit",
-    "quantity": "Quantity"
+    "quantity": "Quantity",
+    "reviewWritten": "You have reviewed this voucher",
+    "reviewRating": "Rating: {rating} of 5",
+    "reviewManage": "See my reviews",
+    "orderVouchers": "View vouchers"
   },
   "Checkout": {
     "title": "Checkout",
@@ -442,7 +447,9 @@
     "retry": "Try payment again",
     "retrying": "Redirecting…",
     "support": "Contact support",
-    "termsHint": "Tick the box above to agree to the terms and continue."
+    "termsHint": "Tick the box above to agree to the terms and continue.",
+    "errorSalesPaused": "Sales in this category are paused for now.",
+    "errorDealGone": "This deal is no longer available."
   },
   "MerchantRegister": {
     "title": "Register your business",

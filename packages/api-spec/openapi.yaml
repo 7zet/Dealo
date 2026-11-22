@@ -1963,20 +1963,8 @@ components:
     Merchant:
       type: object
       required:
-        [
-          id,
-          slug,
-          legal_name,
-          display_name,
-          description,
-          phone,
-          status,
-          rating_avg,
-          rating_count,
-          commission_bps,
-        ]
-      properties:
-        {
+        [id, slug, legal_name, display_name, description, phone, status, rating_avg, rating_count]
+      properties: {
           id: { $ref: '#/components/schemas/Uuid' },
           slug: { type: string },
           legal_name: { type: string },
@@ -1991,6 +1979,7 @@ components:
           status: { type: string, enum: [active, suspended] },
           rating_avg: { type: number, minimum: 0, maximum: 5 },
           rating_count: { type: integer, minimum: 0 },
+          # Sent only to the merchant's own staff; public catalog responses leave it out.
           commission_bps: { type: integer, minimum: 0, maximum: 10000 },
           locations: { type: array, items: { $ref: '#/components/schemas/MerchantLocation' } },
           review_status:
@@ -2241,7 +2230,8 @@ components:
           email_verified_at: { type: [string, 'null'], format: date-time },
           status: { type: string, enum: [active, blocked] },
           roles: { type: array, items: { $ref: '#/components/schemas/Role' } },
-          created_at: { type: string, format: date-time, description: When the account was created. },
+          created_at:
+            { type: string, format: date-time, description: When the account was created. },
           memberships:
             {
               type: array,

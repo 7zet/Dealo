@@ -25,6 +25,10 @@ function problemKey(code: string | undefined) {
       return 'errorStock' as const;
     case 'max_per_user_exceeded':
       return 'errorLimit' as const;
+    case 'category_not_purchasable':
+      return 'errorSalesPaused' as const;
+    case 'deal_not_found':
+      return 'errorDealGone' as const;
     case 'unauthenticated':
       return 'errorSession' as const;
     default:

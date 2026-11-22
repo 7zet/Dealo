@@ -50,7 +50,10 @@ export async function AccountShell({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
       <div className="grid gap-6 md:grid-cols-[14rem_minmax(0,1fr)] md:gap-10">
-        <aside className="grid content-start gap-4 md:sticky md:top-24 md:self-start">
+        {/* On phones a detail page (a voucher at the till) shows its content first, the menu below. */}
+        <aside
+          className={`grid content-start gap-4 md:sticky md:top-24 md:self-start ${detail ? 'max-md:order-last' : ''}`}
+        >
           <h1 className="text-title-small font-bold text-ink">{t('title')}</h1>
           <nav aria-label={t('title')}>
             <ul className="grid grid-cols-2 gap-2 md:grid-cols-1 md:gap-1">

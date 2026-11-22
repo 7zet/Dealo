@@ -138,7 +138,8 @@
       "fri": "Ju",
       "sat": "Sh",
       "sun": "Ya"
-    }
+    },
+    "salesPaused": "Sotuv vaqtincha to‘xtatilgan"
   },
   "Coupons": {
     "title": "Vaucherlar",
@@ -349,7 +350,7 @@
     "emptyOrders": "Hali buyurtmalar yo‘q.",
     "emptySaved": "Saqlangan takliflar yo‘q.",
     "emptyReviews": "Hali sharhlar yo‘q.",
-    "validUntil": "Amal qiladi: {date} gacha",
+    "validUntil": "Amal qiladi: {date} gacha (Toshkent vaqti)",
     "codeLabel": "Kod",
     "merchantLabel": "Biznes",
     "qrAlt": "Vaucher QR kodi",
@@ -405,7 +406,11 @@
     "usedAt": "Foydalanilgan sana: {date}",
     "voucherInactiveTitle": "Bu vaucher endi amal qilmaydi",
     "unitPrice": "Bir dona narxi",
-    "quantity": "Soni"
+    "quantity": "Soni",
+    "reviewWritten": "Siz bu vaucher uchun sharh qoldirgansiz",
+    "reviewRating": "Baho: {rating} / 5",
+    "reviewManage": "Sharhlarimni ko‘rish",
+    "orderVouchers": "Vaucherlarni ko‘rish"
   },
   "Checkout": {
     "title": "Buyurtma",
@@ -442,7 +447,9 @@
     "retry": "Qayta urinib ko‘rish",
     "retrying": "Qayta yuklanmoqda…",
     "support": "Yordamga yozish",
-    "termsHint": "Davom etish uchun yuqoridagi katakchani belgilab, shartlarga rozilik bildiring."
+    "termsHint": "Davom etish uchun yuqoridagi katakchani belgilab, shartlarga rozilik bildiring.",
+    "errorSalesPaused": "Bu yo‘nalishda sotuv vaqtincha to‘xtatilgan.",
+    "errorDealGone": "Bu taklif endi mavjud emas."
   },
   "MerchantRegister": {
     "title": "Biznesingizni ro‘yxatdan o‘tkazing",

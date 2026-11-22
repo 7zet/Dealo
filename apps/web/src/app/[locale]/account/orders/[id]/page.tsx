@@ -3,6 +3,7 @@ import { formatMoney } from '@dealo/ui';
 import { getFormatter, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { Link } from '@/i18n/navigation';
 import { AccountShell } from '@/components/account-shell';
 import { accountGetOrNull, loadForVisitor } from '@/lib/account-api';
 import { pickText } from '@/lib/localized';
@@ -69,6 +70,14 @@ export default async function OrderPage({
           </li>
         ))}
       </ul>
+      {(order.status === 'paid' || order.status === 'completed') && (
+        <Link
+          className="mt-6 inline-block rounded-control-ui bg-brand px-5 py-3 font-semibold text-surface"
+          href="/account/coupons"
+        >
+          {t('orderVouchers')}
+        </Link>
+      )}
     </AccountShell>
   );
 }

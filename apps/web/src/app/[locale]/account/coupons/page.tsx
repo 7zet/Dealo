@@ -80,9 +80,20 @@ export default async function CouponsPage({
                 <span className="text-sm text-ink-muted">{voucher.merchant.display_name}</span>
                 <span className="font-mono text-sm text-ink">{voucher.code}</span>
                 <span className="text-sm text-ink-muted">
-                  {t('validUntil', {
-                    date: format.dateTime(new Date(voucher.valid_until), { dateStyle: 'medium' }),
-                  })}
+                  {voucher.status === 'redeemed' && voucher.redeemed_at
+                    ? t('usedAt', {
+                        date: format.dateTime(new Date(voucher.redeemed_at), {
+                          dateStyle: 'medium',
+                          timeZone: 'Asia/Tashkent',
+                        }),
+                      })
+                    : t('validUntil', {
+                        date: format.dateTime(new Date(voucher.valid_until), {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                          timeZone: 'Asia/Tashkent',
+                        }),
+                      })}
                 </span>
                 <span className="text-sm font-semibold text-ink">
                   {formatMoney(

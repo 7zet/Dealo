@@ -53,11 +53,12 @@ const voucher = {
 };
 
 // The detail page reads this, so a test can swap in another state of the same voucher.
-const detail: { voucher: Record<string, unknown> } = { voucher };
+const detail: { voucher: Record<string, unknown>; reviews: unknown[] } = { voucher, reviews: [] };
 
 vi.mock('@/lib/account-api', () => ({
   loadForVisitor: (_locale: string, _path: string, load: () => Promise<unknown>) => load(),
-  accountGetOrNull: async () => detail.voucher,
+  accountGetOrNull: async (path: string) =>
+    path === '/me/reviews' ? { items: detail.reviews } : detail.voucher,
   accountGet: async (path: string) =>
     path.startsWith('/me/vouchers')
       ? { items: [voucher], page: 1, page_size: 24, total: 1 }
@@ -72,6 +73,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   detail.voucher = voucher;
+  detail.reviews = [];
   process.env.TZ = originalTZ;
 });
 
@@ -85,7 +87,9 @@ describe('voucher pages', () => {
     expect(screen.getByText('225,000 UZS')).toBeInTheDocument();
     expect(screen.queryByText('999,000 UZS')).not.toBeInTheDocument();
     expect(screen.getByText('Book a day ahead.')).toBeInTheDocument();
-    expect(screen.getByText('Valid until Dec 2, 2026')).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Valid until Dec 2, 2026, 11:59\sPM \(Tashkent time\)$/),
+    ).toBeInTheDocument();
   });
 
   it('detail of a used voucher shows the used state and no QR', async () => {
@@ -97,6 +101,18 @@ describe('voucher pages', () => {
     expect(screen.queryByText(messages.Account.brightnessHint)).not.toBeInTheDocument();
     expect(screen.getByText(messages.Account.voucherUsedTitle)).toBeInTheDocument();
     expect(screen.getByText('Used on Nov 10, 2026')).toBeInTheDocument();
+  });
+
+  it('detail of a reviewed voucher shows the review instead of the form', async () => {
+    detail.voucher = { ...voucher, status: 'redeemed', redeemed_at: '2026-11-10T09:00:00Z' };
+    detail.reviews = [
+      { voucher_id: voucher.id, rating: 4, text: 'Great massage, friendly staff.' },
+    ];
+    const { default: VoucherPage } = await import('./[voucherId]/page');
+    render(await VoucherPage({ params: Promise.resolve({ locale: 'en', voucherId: voucher.id }) }));
+
+    expect(screen.getByText(messages.Account.reviewWritten)).toBeInTheDocument();
+    expect(screen.getByText('Great massage, friendly staff.')).toBeInTheDocument();
   });
 
   it('detail hides the placeholder terms backfilled for old orders', async () => {
@@ -120,6 +136,8 @@ describe('voucher pages', () => {
     expect(screen.getByText('Massage 60 min')).toBeInTheDocument();
     expect(screen.queryByText('Renamed deal')).not.toBeInTheDocument();
     expect(screen.getByText('225,000 UZS')).toBeInTheDocument();
-    expect(screen.getByText('Valid until Dec 2, 2026')).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Valid until Dec 2, 2026, 11:59\sPM \(Tashkent time\)$/),
+    ).toBeInTheDocument();
   });
 });

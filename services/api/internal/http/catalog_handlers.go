@@ -402,7 +402,6 @@ func mapMerchant(merchant catalog.Merchant) gen.Merchant {
 		Status:        gen.MerchantStatus("active"),
 		RatingAvg:     float32(merchant.RatingAvg),
 		RatingCount:   merchant.RatingCount,
-		CommissionBps: merchant.CommissionBPS,
 	}
 	return result
 }
@@ -581,7 +580,6 @@ func mapMerchantProfile(profile catalog.MerchantProfile) gen.MerchantProfile {
 		Status:        gen.MerchantProfileStatus("active"),
 		RatingAvg:     float32(profile.RatingAvg),
 		RatingCount:   profile.RatingCount,
-		CommissionBps: profile.CommissionBPS,
 		Locations:     &locations,
 		Deals:         mapDealSummaries(profile.Deals),
 		Reviews:       mapReviews(profile.Reviews),
