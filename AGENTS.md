@@ -1,6 +1,6 @@
-# Grupon agent instructions
+# Dealo agent instructions
 
-Grupon is a Go + Next.js local-deals marketplace for Uzbekistan. Buyers purchase vouchers,
+Dealo is a Go + Next.js local-deals marketplace for Uzbekistan. Buyers purchase vouchers,
 merchants redeem them at branches, and admins moderate deals and finance operations. The code is
 the source of truth for schemas, routes, generated types, and UI behavior.
 
@@ -20,7 +20,7 @@ repository at `../dealo-docs`; read it only when a task needs the original produ
 - Keep responses and context compact. Use `rg` and read only relevant ranges after the initial audit.
 - Do not rescan the repository when `docs/ROADMAP.md` and the touched area are enough.
 - Make reasonable, reversible assumptions; record a new product decision in `docs/DECISIONS.md`.
-- Preserve unrelated working-tree changes. Never commit `Grupon_hisobot.pdf` or generated E2E screenshots.
+- Preserve unrelated working-tree changes. Never commit `Dealo_hisobot.pdf` or generated E2E screenshots.
 - Do not push unless the owner explicitly asks. Push only `feat/merchant-and-admin-flows`.
 - Commits use: `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`.
 - Keep `docs/ROADMAP.md` current when stage work changes. Keep evidence in `docs/ACCEPTANCE.md`.
@@ -28,7 +28,7 @@ repository at `../dealo-docs`; read it only when a task needs the original produ
 ## Hard engineering rules
 
 1. Contract first: edit `packages/api-spec/openapi.yaml`, regenerate the TypeScript client with
-   `corepack pnpm --filter @grupon/api-client run gen`, and run `go generate ./...` in `services/api`.
+   `corepack pnpm --filter @dealo/api-client run gen`, and run `go generate ./...` in `services/api`.
    Never hand-edit generated API types.
 2. Go layers are HTTP handler → domain → store/sqlc. HTTP maps requests and errors; domain owns rules
    and authorization; store owns persistence.

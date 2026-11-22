@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/grupon/grupon/services/api/internal/seed"
+	"github.com/dealo/dealo/services/api/internal/seed"
 )
 
 // TestSeedRoleAccountsSurviveASelfRegisteredPhone checks the development role accounts and that a
@@ -20,7 +20,7 @@ func TestSeedRoleAccountsSurviveASelfRegisteredPhone(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := fixture.pool.Exec(ctx,
-		`INSERT INTO users (email, name, phone) VALUES ('998900000014@phone.grupon.local', 'Self', '+998900000014')`); err != nil {
+		`INSERT INTO users (email, name, phone) VALUES ('998900000014@phone.dealo.local', 'Self', '+998900000014')`); err != nil {
 		t.Fatal(err)
 	}
 	if err := seed.Run(ctx, os.Getenv("TEST_DATABASE_URL")); err != nil {

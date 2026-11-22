@@ -1,4 +1,4 @@
-import type { components } from '@grupon/api-client';
+import type { components } from '@dealo/api-client';
 
 import { can, panelEntryHref, type MerchantPermission } from './merchant-access';
 
@@ -9,7 +9,7 @@ type MembershipStatus = components['schemas']['MerchantMembership']['review_stat
 export const DEFAULT_USER_NAME = 'Foydalanuvchi';
 
 /** Phone sign-in accounts get a generated address on this host; it is not a real mailbox. */
-const PLACEHOLDER_EMAIL_HOST = '@phone.grupon.local';
+const PLACEHOLDER_EMAIL_HOST = '@phone.dealo.local';
 
 export function isDefaultName(name: string | null | undefined): boolean {
   const trimmed = (name ?? '').trim();

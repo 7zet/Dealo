@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/grupon/grupon/services/api/internal/domain/merchant"
-	"github.com/grupon/grupon/services/api/internal/store"
+	"github.com/dealo/dealo/services/api/internal/domain/merchant"
+	"github.com/dealo/dealo/services/api/internal/store"
 )
 
 // TestStaffInviteReturnsFullMemberAndGrantsWorkspace covers the QA report where an invite and a role

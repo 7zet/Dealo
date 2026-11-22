@@ -1,5 +1,5 @@
-import { publicApi } from '@grupon/api-client';
-import { brandConfig, type Locale } from '@grupon/config';
+import { publicApi } from '@dealo/api-client';
+import { brandConfig, type Locale } from '@dealo/config';
 import { ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Suspense } from 'react';

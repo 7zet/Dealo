@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import messages from '@grupon/i18n/messages/uz';
+import messages from '@dealo/i18n/messages/uz';
 
 import { VoucherRedeemPanel } from './voucher-redeem-panel';
 

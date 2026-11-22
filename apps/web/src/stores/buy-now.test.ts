@@ -21,10 +21,10 @@ describe('buy-now selection', () => {
   });
 
   it('lives in tab storage, never in the old persistent localStorage cart', () => {
-    window.localStorage.setItem('grupon-cart', '{"state":{"items":[]}}');
+    window.localStorage.setItem('dealo-cart', '{"state":{"items":[]}}');
     useBuyNow.getState().select([item('deal-a', 1)]);
-    expect(window.localStorage.getItem('grupon-buy-now')).toBeNull();
-    expect(window.sessionStorage.getItem('grupon-buy-now')).toContain('deal-a');
+    expect(window.localStorage.getItem('dealo-buy-now')).toBeNull();
+    expect(window.sessionStorage.getItem('dealo-buy-now')).toContain('deal-a');
   });
 
   it('is emptied by clearBuyNow', () => {

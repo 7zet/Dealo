@@ -1,4 +1,4 @@
-# Grupon roadmap
+# Dealo roadmap
 
 This file is the single source of truth for where the project is. Detailed acceptance evidence is in
 `docs/ACCEPTANCE.md`; durable decisions are in `docs/DECISIONS.md`.
@@ -13,7 +13,7 @@ and baseline `v0.1` exists.
 **Holat:** Done.
 
 - Dealo reference moved to `../dealo-docs`; obsolete analysis removed from the active docs.
-- PostgreSQL test data moved to `C:\dev\grupon-pgdata`; helper script documented.
+- PostgreSQL test data moved to `C:\dev\dealo-pgdata`; helper script documented.
 - Playwright uses separate seeded accounts and four workers.
 - Tag `v0.1` exists at the Stage 0 baseline.
 

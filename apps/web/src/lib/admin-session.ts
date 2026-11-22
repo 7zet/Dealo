@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { components } from '@grupon/api-client';
+import type { components } from '@dealo/api-client';
 import { notFound } from 'next/navigation';
 
 import { canOpenAdminArea, type AdminArea } from './admin-access';

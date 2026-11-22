@@ -1,6 +1,6 @@
-import { publicApi } from '@grupon/api-client';
-import { brandConfig, isCurrency, isLocale, locales } from '@grupon/config';
-import { BaseLayout } from '@grupon/ui';
+import { publicApi } from '@dealo/api-client';
+import { brandConfig, isCurrency, isLocale, locales } from '@dealo/config';
+import { BaseLayout } from '@dealo/ui';
 import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';

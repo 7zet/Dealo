@@ -1,5 +1,5 @@
-import type { components } from '@grupon/api-client';
-import type { Locale } from '@grupon/config';
+import type { components } from '@dealo/api-client';
+import type { Locale } from '@dealo/config';
 import { getTranslations } from 'next-intl/server';
 
 import { DealWizard } from '@/components/deal-wizard';

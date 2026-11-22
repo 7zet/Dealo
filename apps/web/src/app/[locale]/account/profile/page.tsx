@@ -1,5 +1,5 @@
-import type { components } from '@grupon/api-client';
-import { isLocale, type Locale } from '@grupon/config';
+import type { components } from '@dealo/api-client';
+import { isLocale, type Locale } from '@dealo/config';
 import {
   ArrowRight,
   Briefcase,

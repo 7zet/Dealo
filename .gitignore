@@ -41,5 +41,5 @@ services/api/.data/
 /dealo.zip
 
 # Owner and generated browser-test artifacts live outside the repository.
-/Grupon_hisobot.pdf
+/Dealo_hisobot.pdf
 /docs/screenshots/*.png

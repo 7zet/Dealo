@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/grupon/grupon/services/api/internal/domain/merchant"
-	"github.com/grupon/grupon/services/api/internal/store"
+	"github.com/dealo/dealo/services/api/internal/domain/merchant"
+	"github.com/dealo/dealo/services/api/internal/store"
 )
 
 // TestDashboardShowsLatestOrdersAndAMissingBaseline covers the QA report where the dashboard said there

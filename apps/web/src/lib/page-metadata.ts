@@ -1,4 +1,4 @@
-import type { Locale } from '@grupon/config';
+import type { Locale } from '@dealo/config';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 

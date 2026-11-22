@@ -25,7 +25,7 @@ type BuyNowState = {
 };
 
 /** Key of the persistent cart that older builds kept in localStorage; removed so it cannot leak. */
-const LEGACY_CART_KEY = 'grupon-cart';
+const LEGACY_CART_KEY = 'dealo-cart';
 
 /** sessionStorage, guarded: it is per tab, ends with the browser session and may be unavailable. */
 const tabStorage = createJSONStorage(() => {
@@ -44,7 +44,7 @@ export const useBuyNow = create<BuyNowState>()(
       select: (items) => set({ items }),
       clear: () => set({ items: [] }),
     }),
-    { name: 'grupon-buy-now', storage: tabStorage },
+    { name: 'dealo-buy-now', storage: tabStorage },
   ),
 );
 

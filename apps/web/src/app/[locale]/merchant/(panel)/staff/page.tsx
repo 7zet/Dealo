@@ -1,4 +1,4 @@
-import type { components } from '@grupon/api-client';
+import type { components } from '@dealo/api-client';
 import { Check, Users } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 

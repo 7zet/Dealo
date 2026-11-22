@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/grupon/grupon/services/api/internal/domain/commerce"
-	"github.com/grupon/grupon/services/api/internal/platform/mail"
-	"github.com/grupon/grupon/services/api/internal/store"
+	"github.com/dealo/dealo/services/api/internal/domain/commerce"
+	"github.com/dealo/dealo/services/api/internal/platform/mail"
+	"github.com/dealo/dealo/services/api/internal/store"
 )
 
 // More AT-03 races: the last unit, multi-unit orders and multi-item orders. Every case checks the

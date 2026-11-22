@@ -1,5 +1,5 @@
-import type { PublicConfig } from '@grupon/api-client';
-import type { Locale } from '@grupon/config';
+import type { PublicConfig } from '@dealo/api-client';
+import type { Locale } from '@dealo/config';
 import {
   ArrowRight,
   Dumbbell,

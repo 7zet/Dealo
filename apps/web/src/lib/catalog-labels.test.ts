@@ -1,6 +1,6 @@
 import { createTranslator } from 'next-intl';
-import en from '@grupon/i18n/messages/en';
-import ru from '@grupon/i18n/messages/ru';
+import en from '@dealo/i18n/messages/en';
+import ru from '@dealo/i18n/messages/ru';
 import { describe, expect, it } from 'vitest';
 
 import { categoryLabel, subcategoryLabel, type CatalogTranslator } from './catalog-labels';

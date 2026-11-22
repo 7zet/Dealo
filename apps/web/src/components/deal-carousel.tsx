@@ -1,7 +1,7 @@
 'use client';
 
-import type { DealSummary } from '@grupon/api-client';
-import type { Currency, Locale } from '@grupon/config';
+import type { DealSummary } from '@dealo/api-client';
+import type { Currency, Locale } from '@dealo/config';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import messages from '@grupon/i18n/messages/en';
+import messages from '@dealo/i18n/messages/en';
 
 // The pages are server components; their server-only collaborators are replaced with plain stubs.
 // Translations and dates go through the real request config (src/i18n/request.ts).

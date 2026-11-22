@@ -1,5 +1,5 @@
-import type { PublicConfig } from '@grupon/api-client';
-import { brandConfig, type Currency, type Locale } from '@grupon/config';
+import type { PublicConfig } from '@dealo/api-client';
+import { brandConfig, type Currency, type Locale } from '@dealo/config';
 import { Home, Search, Ticket, UserRound } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import type { PropsWithChildren } from 'react';

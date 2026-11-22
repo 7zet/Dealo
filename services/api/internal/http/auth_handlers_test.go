@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/grupon/grupon/services/api/internal/domain/identity"
-	"github.com/grupon/grupon/services/api/internal/domain/identity/identitytest"
-	"github.com/grupon/grupon/services/api/internal/domain/reviews"
+	"github.com/dealo/dealo/services/api/internal/domain/identity"
+	"github.com/dealo/dealo/services/api/internal/domain/identity/identitytest"
+	"github.com/dealo/dealo/services/api/internal/domain/reviews"
 )
 
 const (
@@ -48,7 +48,7 @@ func newAuthHarness(t *testing.T, limit int, secure bool) authHarness {
 	}, identity.Config{
 		AccessTokenTTL: 15 * time.Minute, RefreshTokenTTL: 30 * 24 * time.Hour,
 		VerifyEmailTTL: 24 * time.Hour, OTPEcho: true,
-		WebBaseURL: "https://grupon.test", BrandName: "Grupon",
+		WebBaseURL: "https://dealo.test", BrandName: "Dealo",
 	})
 	auth := NewAuthAPI(service, slog.New(slog.NewTextHandler(io.Discard, nil)), AuthOptions{
 		SecureCookies:   secure,

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/grupon/grupon/services/api/internal/domain/reviews"
+	"github.com/dealo/dealo/services/api/internal/domain/reviews"
 )
 
 func TestUpdateMeRejectsPhoneChange(t *testing.T) {

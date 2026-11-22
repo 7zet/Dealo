@@ -1,7 +1,7 @@
 'use client';
 
-import { discountPercent, formatMoney, tiyinFromSom } from '@grupon/ui';
-import type { Currency, Locale } from '@grupon/config';
+import { discountPercent, formatMoney, tiyinFromSom } from '@dealo/ui';
+import type { Currency, Locale } from '@dealo/config';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 

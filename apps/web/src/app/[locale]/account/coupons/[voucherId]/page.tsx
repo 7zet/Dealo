@@ -1,5 +1,5 @@
-import type { components } from '@grupon/api-client';
-import { formatMoney } from '@grupon/ui';
+import type { components } from '@dealo/api-client';
+import { formatMoney } from '@dealo/ui';
 import { getTranslations, getFormatter } from 'next-intl/server';
 import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';

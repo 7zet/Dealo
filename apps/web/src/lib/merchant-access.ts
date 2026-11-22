@@ -4,7 +4,7 @@
  * declares the one permission it needs, and the API enforces the same rule on every request.
  */
 
-import type { components } from '@grupon/api-client';
+import type { components } from '@dealo/api-client';
 
 /** Permission codes of the server's merchant permission matrix. */
 export type MerchantPermission = components['schemas']['MerchantPermission'];

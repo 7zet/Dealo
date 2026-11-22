@@ -1,4 +1,4 @@
-import type { Locale } from '@grupon/config';
+import type { Locale } from '@dealo/config';
 import { ArrowRight, BarChart3, QrCode, Store } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';

@@ -1,5 +1,5 @@
-import { publicApi } from '@grupon/api-client';
-import { isCategorySlug, isCitySlug, localized, type Locale } from '@grupon/config';
+import { publicApi } from '@dealo/api-client';
+import { isCategorySlug, isCitySlug, localized, type Locale } from '@dealo/config';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';

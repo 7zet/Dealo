@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grupon/grupon/services/api/internal/domain/identity"
-	"github.com/grupon/grupon/services/api/internal/domain/identity/identitytest"
+	"github.com/dealo/dealo/services/api/internal/domain/identity"
+	"github.com/dealo/dealo/services/api/internal/domain/identity/identitytest"
 )
 
 var loopbackProxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")}

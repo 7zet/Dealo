@@ -1,4 +1,4 @@
-import { isLocale } from '@grupon/config';
+import { isLocale } from '@dealo/config';
 
 /**
  * Removes a leading locale segment: `/en/account/profile` → `/account/profile`, `/ru` → `/`.

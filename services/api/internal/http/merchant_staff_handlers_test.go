@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/grupon/grupon/services/api/internal/domain/merchant"
+	"github.com/dealo/dealo/services/api/internal/domain/merchant"
 )
 
 // TestStaffMemberResponseNeedsTheUserEmail pins the cause of the staff invite 500: the generated

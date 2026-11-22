@@ -1,8 +1,8 @@
-# Grupon — butun ish hisoboti
+# Dealo — butun ish hisoboti
 
 > Sana: 2026-11-03. Branch: `feat/merchant-and-admin-flows`. Oxirgi commit: `a6e6618`.
 > Bu fayl qilingan barcha ishlarning bitta joydagi xulosasi. Batafsil qarorlar `docs/DECISIONS.md`da,
-> holat `docs/STATUS.md`da, Dealo bilan solishtirish `docs/ANALYSIS-DEALO-VS-GRUPON.md`da.
+> holat `docs/STATUS.md`da, Dealo bilan solishtirish `docs/ANALYSIS-DEALO.md`da.
 
 ## 1. Loyiha qisqacha
 
@@ -24,7 +24,7 @@ har bir sezgir amal audit yozuvi bilan, zaxira yozish bitta shartli UPDATE bilan
 | `52c5d1f` | Merchant onboarding va ko'rib chiqish, biznes hujjatlari, seed haqiqiy akkauntlarni saqlaydi                                                    |
 | `a6e6618` | PRD holat mashinalari, pilot kategoriyalar, merchant panel, tozalash (bu hisobotning asosiy qismi)                                              |
 
-Commit'ga qo'shilmagan: `Grupon_hisobot.pdf` (egasining shaxsiy fayli) va `dealo/` papkasi hamda `dealo.zip`
+Commit'ga qo'shilmagan: `Dealo_hisobot.pdf` (egasining shaxsiy fayli) va `dealo/` papkasi hamda `dealo.zip`
 (Dealo nusxasi; ularni `.gitignore`ga qo'shish yoki o'chirish hali hal qilinmagan).
 
 ## 3. Moliya yadrosi
@@ -181,7 +181,7 @@ Oldingi migratsiyalar 00001–00008 — boshlang'ich sxema, auth, telefon OTP, m
 
 ## 12. API kontrakti
 
-- Manba: `packages/api-spec/openapi.yaml`. TS: `pnpm --filter @grupon/api-client run gen`. Go:
+- Manba: `packages/api-spec/openapi.yaml`. TS: `pnpm --filter @dealo/api-client run gen`. Go:
   `go generate ./...` (`services/api`). Eslatma: root `pnpm gen` bu muhitda ishlamadi, paketni alohida
   ishga tushirish kerak.
 - Yangi operatsiyalar: `listMerchantPayouts`, `listMerchantCustomers`, `getMerchantAnalytics`,
@@ -211,7 +211,7 @@ Oldingi migratsiyalar 00001–00008 — boshlang'ich sxema, auth, telefon OTP, m
 | Qatlam                                          | Natija                                |
 | ----------------------------------------------- | ------------------------------------- |
 | Go (`go test ./...`, `TEST_DATABASE_URL` bilan) | Hammasi o'tadi; `go vet` toza         |
-| Web typecheck (`@grupon/web`)                   | Toza                                  |
+| Web typecheck (`@dealo/web`)                    | Toza                                  |
 | Web unit (vitest)                               | 6/6                                   |
 | Playwright e2e (`e2e/`)                         | 16/16, faqat ketma-ket (`workers: 1`) |
 
@@ -237,7 +237,7 @@ telefonidan kiradi va har yangi kod oldingisini bekor qiladi. Hal: `workers: 1`.
 
 ## 17. Tahlil va Dealo bilan solishtirish
 
-`docs/ANALYSIS-DEALO-VS-GRUPON.md` — Dealo PRD va dizayn hujjatlari bilan har bir modul, qoida, holat va
+`docs/ANALYSIS-DEALO.md` — Dealo PRD va dizayn hujjatlari bilan har bir modul, qoida, holat va
 endpoint solishtirilgan. Eslatma: bu hujjatning ba'zi bandlari (masalan zaxira kod 8 belgi, bron 10 daqiqa,
 holat nomlari, kategoriyalar, merchant paneli 7 bo'limi) bugungi ishlardan oldin yozilgan va hozir eskirgan.
 Shu hisobotdagi bo'limlar haqiqiyroq.

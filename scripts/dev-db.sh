@@ -4,8 +4,8 @@
 #   scripts/dev-db.sh start | stop | status
 set -eu
 PGBIN="${PGBIN:-/c/Program Files/PostgreSQL/16/bin}"
-PGDATA="${PGDATA:-C:/dev/grupon-pgdata}"
-PGLOG="${PGLOG:-C:/dev/grupon-pgdata.log}"
+PGDATA="${PGDATA:-C:/dev/dealo-pgdata}"
+PGLOG="${PGLOG:-C:/dev/dealo-pgdata.log}"
 PORT="${PGPORT:-5433}"
 
 case "${1:-status}" in

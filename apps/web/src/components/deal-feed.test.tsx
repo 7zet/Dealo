@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import type { DealSummary } from '@grupon/api-client';
-import messages from '@grupon/i18n/messages/en';
+import type { DealSummary } from '@dealo/api-client';
+import messages from '@dealo/i18n/messages/en';
 import { deals } from '@/mocks/data';
 import { DealFeed } from './deal-feed';
 
@@ -15,7 +15,7 @@ const all: DealSummary[] = Array.from({ length: TOTAL }, (_, index) => ({
 }));
 
 const dealsApi = vi.hoisted(() => vi.fn());
-vi.mock('@grupon/api-client', async (importOriginal) => ({
+vi.mock('@dealo/api-client', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   publicApi: { deals: dealsApi },
 }));

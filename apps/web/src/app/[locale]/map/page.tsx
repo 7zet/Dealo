@@ -1,5 +1,5 @@
-import { publicApi } from '@grupon/api-client';
-import type { Locale } from '@grupon/config';
+import { publicApi } from '@dealo/api-client';
+import type { Locale } from '@dealo/config';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { MerchantMap, type MerchantMapItem } from '@/components/merchant-map';

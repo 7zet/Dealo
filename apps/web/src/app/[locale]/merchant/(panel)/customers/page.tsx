@@ -1,6 +1,6 @@
-import type { components } from '@grupon/api-client';
-import type { Locale } from '@grupon/config';
-import { formatMoney } from '@grupon/ui';
+import type { components } from '@dealo/api-client';
+import type { Locale } from '@dealo/config';
+import { formatMoney } from '@dealo/ui';
 import { UsersRound } from 'lucide-react';
 import { getFormatter, getTranslations } from 'next-intl/server';
 

@@ -1,7 +1,7 @@
 'use client';
 
-import type { components, PublicConfig } from '@grupon/api-client';
-import { brandConfig, localized, type Locale } from '@grupon/config';
+import type { components, PublicConfig } from '@dealo/api-client';
+import { brandConfig, localized, type Locale } from '@dealo/config';
 import { Bell, MapPinned, Menu, Smartphone, UserRound } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';

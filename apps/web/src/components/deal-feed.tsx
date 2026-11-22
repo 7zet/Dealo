@@ -1,7 +1,7 @@
 'use client';
 
-import { publicApi, type DealSummary } from '@grupon/api-client';
-import type { Currency, Locale } from '@grupon/config';
+import { publicApi, type DealSummary } from '@dealo/api-client';
+import type { Currency, Locale } from '@dealo/config';
 import { LoaderCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';

@@ -1,12 +1,12 @@
 'use client';
 
-import type { Locale } from '@grupon/config';
+import type { Locale } from '@dealo/config';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useState } from 'react';
 
 import type { MediaAsset } from '@/components/merchant-media-library';
-import { formatMoney, tiyinFromSom } from '@grupon/ui';
+import { formatMoney, tiyinFromSom } from '@dealo/ui';
 
 type Localized = { uz: string; ru: string; en: string };
 type Location = { id: string; label: string };

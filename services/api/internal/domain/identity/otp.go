@@ -22,7 +22,7 @@ const (
 	otpCooldown     = time.Minute
 	otpMaxAttempts  = 5
 	defaultUserName = "Foydalanuvchi"
-	placeholderHost = "phone.grupon.local"
+	placeholderHost = "phone.dealo.local"
 )
 
 // Sign-in rate rules. Per-phone rules stop guessing and SMS flooding for one number. Per-IP rules

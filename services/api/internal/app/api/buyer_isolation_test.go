@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/grupon/grupon/services/api/internal/platform/config"
-	"github.com/grupon/grupon/services/api/internal/platform/ratelimit"
-	"github.com/grupon/grupon/services/api/internal/seed"
+	"github.com/dealo/dealo/services/api/internal/platform/config"
+	"github.com/dealo/dealo/services/api/internal/platform/ratelimit"
+	"github.com/dealo/dealo/services/api/internal/seed"
 )
 
 // These tests drive the real router on a seeded database as two buyers. Buyer A completes a purchase
@@ -49,7 +49,7 @@ func newBuyerEnv(t *testing.T) matrixEnv {
 			AccessTokenTTL:  15 * time.Minute,
 			RefreshTokenTTL: 24 * time.Hour,
 			WebPublicURL:    "http://localhost:3000",
-			BrandName:       "Grupon",
+			BrandName:       "Dealo",
 		},
 		Commerce: config.CommerceConfig{
 			QRSecret:            "buyer-test-qr-secret-with-32-bytes!!",

@@ -1,6 +1,6 @@
 'use client';
 
-import { locales, type Locale } from '@grupon/config';
+import { locales, type Locale } from '@dealo/config';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CircleAlert, CircleCheck } from 'lucide-react';
 import { useTranslations } from 'next-intl';

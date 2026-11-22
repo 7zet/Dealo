@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  currencies,
-  currencyCookieName,
-  locales,
-  type Currency,
-  type Locale,
-} from '@grupon/config';
+import { currencies, currencyCookieName, locales, type Currency, type Locale } from '@dealo/config';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
 

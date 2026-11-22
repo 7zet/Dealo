@@ -7,7 +7,7 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL NEXT_PUBLIC_SITE_URL=$NEX
 WORKDIR /repo
 COPY . .
 RUN pnpm install --frozen-lockfile \
- && pnpm --filter @grupon/web build
+ && pnpm --filter @dealo/web build
 
 FROM node:26-alpine AS run
 RUN corepack enable
@@ -16,4 +16,4 @@ WORKDIR /repo
 COPY --from=build /repo /repo
 USER node
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@grupon/web", "start", "--port", "3000"]
+CMD ["pnpm", "--filter", "@dealo/web", "start", "--port", "3000"]

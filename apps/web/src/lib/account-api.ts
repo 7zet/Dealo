@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { components } from '@grupon/api-client';
+import type { components } from '@dealo/api-client';
 import { getLocale } from 'next-intl/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';

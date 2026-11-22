@@ -1,5 +1,5 @@
-import { publicApi } from '@grupon/api-client';
-import { brandConfig, localized, type Locale } from '@grupon/config';
+import { publicApi } from '@dealo/api-client';
+import { brandConfig, localized, type Locale } from '@dealo/config';
 import { MapPin, Star } from 'lucide-react';
 import Image from 'next/image';
 import type { Metadata } from 'next';

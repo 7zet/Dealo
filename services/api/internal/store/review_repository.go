@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/grupon/grupon/services/api/internal/domain/catalog"
-	"github.com/grupon/grupon/services/api/internal/domain/reviews"
-	sqlc "github.com/grupon/grupon/services/api/internal/store/sqlc"
+	"github.com/dealo/dealo/services/api/internal/domain/catalog"
+	"github.com/dealo/dealo/services/api/internal/domain/reviews"
+	sqlc "github.com/dealo/dealo/services/api/internal/store/sqlc"
 )
 
 // ReviewRepository persists reviews and reports.

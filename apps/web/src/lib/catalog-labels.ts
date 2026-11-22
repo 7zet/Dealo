@@ -1,4 +1,4 @@
-import { localized, type Locale, type LocalizedText } from '@grupon/config';
+import { localized, type Locale, type LocalizedText } from '@dealo/config';
 
 /**
  * The `Catalog` translator from `useTranslations('Catalog')` or `getTranslations('Catalog')`.

@@ -1,4 +1,4 @@
-import type { Currency, Locale } from '@grupon/config';
+import type { Currency, Locale } from '@dealo/config';
 
 /** Money is stored and sent as tiyin (1 so'm = 100 tiyin), per ADR-0003. */
 export const TIYIN_PER_SOM = 100;

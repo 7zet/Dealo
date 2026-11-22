@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/grupon/grupon/services/api/internal/domain/catalog"
-	"github.com/grupon/grupon/services/api/internal/domain/identity"
-	"github.com/grupon/grupon/services/api/internal/domain/merchant"
-	"github.com/grupon/grupon/services/api/internal/domain/reviews"
-	"github.com/grupon/grupon/services/api/internal/store"
+	"github.com/dealo/dealo/services/api/internal/domain/catalog"
+	"github.com/dealo/dealo/services/api/internal/domain/identity"
+	"github.com/dealo/dealo/services/api/internal/domain/merchant"
+	"github.com/dealo/dealo/services/api/internal/domain/reviews"
+	"github.com/dealo/dealo/services/api/internal/store"
 )
 
 // redeemedVoucherFor creates a redeemed voucher for the buyer on the first active seeded option and

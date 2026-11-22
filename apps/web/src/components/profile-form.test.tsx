@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import messages from '@grupon/i18n/messages/en';
+import messages from '@dealo/i18n/messages/en';
 
 import {
   formatPhone,
@@ -88,7 +88,7 @@ describe('profile helpers', () => {
   it('formats Uzbekistan phones and hides placeholder emails', () => {
     expect(formatPhone('+998900000002')).toBe('+998 90 000 00 02');
     expect(formatPhone(null)).toBeNull();
-    expect(isPlaceholderEmail('998901111111@phone.grupon.local')).toBe(true);
+    expect(isPlaceholderEmail('998901111111@phone.dealo.local')).toBe(true);
     expect(isPlaceholderEmail('aziz@example.com')).toBe(false);
     expect(initials('Aziz Karimov')).toBe('AK');
     expect(initials('Foydalanuvchi')).toBeNull();

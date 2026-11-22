@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/grupon/grupon/services/api/internal/domain/identity"
+	"github.com/dealo/dealo/services/api/internal/domain/identity"
 )
 
 const keyPrefix = "ratelimit:"
