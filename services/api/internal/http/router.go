@@ -60,6 +60,9 @@ type RouterOptions struct {
 	Finance *FinanceAPI
 	// MediaFiles serves stored media files for the local storage adapter when set.
 	MediaFiles http.Handler
+	// StrictTransportSecurity adds an HSTS header to every response. It is on outside development,
+	// where the API is served over HTTPS only.
+	StrictTransportSecurity bool
 }
 
 // maxRequestBodyBytes caps every request body. The largest accepted payload is a small JSON object.
@@ -80,6 +83,7 @@ func NewRouter(options RouterOptions) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(addRequestIDHeader)
+	router.Use(securityHeaders(options.StrictTransportSecurity))
 	router.Use(logRequests(logger))
 	router.Use(recoverPanics(logger))
 	router.Use(limitRequestBody(maxRequestBodyBytes))

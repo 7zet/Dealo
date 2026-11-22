@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/google/uuid"
 	"github.com/dealo/dealo/services/api/internal/app/commerceapp"
 	"github.com/dealo/dealo/services/api/internal/domain/catalog"
 	"github.com/dealo/dealo/services/api/internal/domain/commerce"
@@ -33,6 +32,7 @@ import (
 	"github.com/dealo/dealo/services/api/internal/platform/sms"
 	"github.com/dealo/dealo/services/api/internal/platform/storage"
 	"github.com/dealo/dealo/services/api/internal/store"
+	"github.com/google/uuid"
 )
 
 // Run connects to PostgreSQL and Redis, serves the HTTP API, and blocks until the server stops
@@ -150,7 +150,8 @@ func newRouter(cfg config.Config, pool *pgxpool.Pool, limiter identity.RateLimit
 			finance.NewService(store.NewFinanceRepository(pool), time.Now),
 			redemption.NewService(store.NewRedemptionRepository(pool, store.NewCommerceRepository(pool), store.NewCatalogRepository(pool)), verifyQRToken(commerceService), time.Now).WithBackupCodes(commerceService.Signer().BackupCodeHMAC),
 			workspaceService, authAPI, logger),
-		MediaFiles: http.StripPrefix("/media/", http.FileServer(http.Dir(mediaStore.Root()))),
+		MediaFiles:              http.StripPrefix("/media/", http.FileServer(http.Dir(mediaStore.Root()))),
+		StrictTransportSecurity: cfg.Environment != "development",
 	}), nil
 }
 

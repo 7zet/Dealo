@@ -71,7 +71,7 @@ and a documented manual-payment operating mode pass pilot checks.
 Task list:
 
 1. SMS adapter.
-2. Hosting preparation.
+2. Hosting preparation. Done so far: production security headers (CSP, HSTS, framing) on web and API, and the CSRF origin check on BFF and sign-in routes (2026-11-22).
 3. Scanner PWA.
 4. TOTP 2FA for admin and finance roles.
 5. Manual payment confirmation mode.

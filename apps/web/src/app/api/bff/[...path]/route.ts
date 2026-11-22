@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { rejectCrossSite } from '@/lib/csrf';
 import { ACCESS_COOKIE, REFRESH_COOKIE, apiBaseUrl } from '@/lib/session-cookies';
 import { refreshSession } from '@/lib/session-refresh';
 
@@ -91,6 +92,9 @@ const BINARY_DOWNLOAD = new RegExp(
 );
 
 async function forward(request: Request, context: { params: Promise<{ path: string[] }> }) {
+  // State-changing calls must come from this site's own pages (see lib/csrf.ts).
+  const forged = rejectCrossSite(request);
+  if (forged) return forged;
   const { path } = await context.params;
   const route = path.join('/');
   const allowed = ALLOWED.some(
