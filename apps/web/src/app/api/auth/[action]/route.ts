@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { rejectCrossSite } from '@/lib/csrf';
 import { forwardHeaders } from '@/lib/forward-headers';
 import {
   ACCESS_COOKIE,
@@ -47,6 +48,9 @@ async function landingFor(token: string | null): Promise<string> {
 }
 
 export async function POST(request: Request, context: { params: Promise<{ action: string }> }) {
+  // Sign-in and sign-out set or clear the session, so a forged cross-site post is refused.
+  const forged = rejectCrossSite(request);
+  if (forged) return forged;
   const { action } = await context.params;
   const path = API_PATHS[action];
   if (!path) {

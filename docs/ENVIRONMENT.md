@@ -32,14 +32,15 @@ Plain-language reference for every setting. The API reads its settings at start-
 
 ## Web (`apps/web`)
 
-| Variable                          | Set at              | Meaning                                                           |
-| --------------------------------- | ------------------- | ----------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL`        | build time          | Public API address, for example `https://api.example.com/api/v1`. |
-| `NEXT_PUBLIC_SITE_URL`            | build time          | Public web address.                                               |
-| `WEB_REVALIDATE_SECRET`           | run time            | Must match the API value.                                         |
-| `USE_MSW` / `NEXT_PUBLIC_USE_MSW` | never in production | Mock API for development without the backend. Keep `false`.       |
+| Variable                          | Set at              | Meaning                                                                                                                                              |
+| --------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL`        | build time          | Public API address, for example `https://api.example.com/api/v1`.                                                                                    |
+| `NEXT_PUBLIC_SITE_URL`            | build time          | Public web address.                                                                                                                                  |
+| `WEB_REVALIDATE_SECRET`           | run time            | Must match the API value.                                                                                                                            |
+| `USE_MSW` / `NEXT_PUBLIC_USE_MSW` | never in production | Mock API for development without the backend. Keep `false`.                                                                                          |
+| `MEDIA_PUBLIC_BASE`               | run time, optional  | Same value as the API's. Needed only when media is served from a host other than the API; it is added to the page Content-Security-Policy `img-src`. |
 
-`NEXT_PUBLIC_*` values are copied into the browser bundle at build time, so changing them needs a new image.
+`NEXT_PUBLIC_*` values are copied into the browser bundle at build time, so changing them needs a new image. A deployed site must set `NEXT_PUBLIC_SITE_URL` to its public HTTPS address: a local address (or none) is treated as a local build, which still allows the Unsplash seed images.
 
 ## Database and workers
 
