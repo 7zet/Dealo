@@ -2583,16 +2583,18 @@ components:
         }
     DealMediaInput:
       type: object
-      required: [url, alt, sort_order, width, height, blurhash]
+      description: >-
+        One deal photo. Send exactly one of `media_asset_id` (a ready photo from the merchant's own
+        media library) or `id` (a photo already on this deal, kept unchanged; update only). The
+        server takes the address, size and blurhash from the stored photo. Anything else is refused
+        with 422 `media_not_found` on `media`.
+      required: [alt, sort_order]
       properties:
         {
           id: { $ref: '#/components/schemas/Uuid' },
-          url: { type: string, format: uri },
+          media_asset_id: { $ref: '#/components/schemas/Uuid' },
           alt: { $ref: '#/components/schemas/LocalizedText' },
           sort_order: { type: integer, minimum: 0 },
-          width: { type: integer, minimum: 1 },
-          height: { type: integer, minimum: 1 },
-          blurhash: { type: string },
         }
     ReviewReport:
       type: object

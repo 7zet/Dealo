@@ -31,13 +31,14 @@ func NewMerchantDealRepository(pool *pgxpool.Pool, catalog *CatalogRepository) *
 
 var _ merchant.DealRepository = (*MerchantDealRepository)(nil)
 
-// References checks the taxonomy and locations of a draft belong to valid, owned records.
 // ReviewStatus reads the business review status for the approval gate.
 func (r *MerchantDealRepository) ReviewStatus(ctx context.Context, merchantID uuid.UUID) (string, error) {
 	return NewMerchantReviewRepository(r.pool).ReviewStatus(ctx, merchantID)
 }
 
-func (r *MerchantDealRepository) References(ctx context.Context, merchantID uuid.UUID, in merchant.DealInput) error {
+// References checks the taxonomy, locations and option ids of a draft belong to valid, owned records.
+// dealID is uuid.Nil for a new deal, which may not name existing options.
+func (r *MerchantDealRepository) References(ctx context.Context, merchantID, dealID uuid.UUID, in merchant.DealInput) error {
 	queries := sqlc.New(r.pool)
 	capabilities, err := queries.CategoryCapabilities(ctx, toPgUUID(in.CategoryID))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -71,7 +72,73 @@ func (r *MerchantDealRepository) References(ctx context.Context, merchantID uuid
 	if int(owned) != len(locationIDs) {
 		return &merchant.InvalidInputError{Field: "location_ids", Code: "location_not_found"}
 	}
+	// An option id must be an option of this deal. Otherwise the upsert would either skip it silently
+	// (another deal's option) or create an option with a client-chosen id.
+	optionIDs := make([]uuid.UUID, 0, len(in.Options))
+	for _, option := range in.Options {
+		if option.ID != nil {
+			optionIDs = append(optionIDs, *option.ID)
+		}
+	}
+	optionNotFound := &merchant.InvalidInputError{Field: "options", Code: "option_not_found"}
+	optionIDs = uniqueUUIDs(optionIDs)
+	if len(optionIDs) > 0 {
+		if dealID == uuid.Nil {
+			return optionNotFound
+		}
+		// The deal itself is scoped to the merchant by the update; here it only has to own the options.
+		found, err := queries.CountDealOptionsByIDs(ctx, sqlc.CountDealOptionsByIDsParams{
+			DealID: toPgUUID(dealID), OptionIds: toPgUUIDs(optionIDs),
+		})
+		if err != nil {
+			return fmt.Errorf("check options: %w", err)
+		}
+		if int(found) != len(optionIDs) {
+			return optionNotFound
+		}
+	}
 	return nil
+}
+
+// ReadyAssets returns the merchant's ready, non-deleted media assets among ids.
+func (r *MerchantDealRepository) ReadyAssets(ctx context.Context, merchantID uuid.UUID, ids []uuid.UUID) ([]merchant.Asset, error) {
+	rows, err := sqlc.New(r.pool).ListReadyMediaAssetsByIDs(ctx, sqlc.ListReadyMediaAssetsByIDsParams{
+		MerchantID: toPgUUID(merchantID), Ids: toPgUUIDs(uniqueUUIDs(ids)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list deal media assets: %w", err)
+	}
+	assets := make([]merchant.Asset, 0, len(rows))
+	for _, row := range rows {
+		assets = append(assets, merchant.Asset{
+			ID: toUUID(row.ID), MerchantID: merchantID, StorageKey: row.StorageKey,
+			Width: int(row.Width.Int32), Height: int(row.Height.Int32), Ready: true,
+		})
+	}
+	return assets, nil
+}
+
+// DealPhotos returns the photos currently on an owned deal.
+func (r *MerchantDealRepository) DealPhotos(ctx context.Context, merchantID, dealID uuid.UUID) ([]merchant.DealMediaData, error) {
+	rows, err := sqlc.New(r.pool).ListOwnedDealMedia(ctx, sqlc.ListOwnedDealMediaParams{
+		DealID: toPgUUID(dealID), MerchantID: toPgUUID(merchantID),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list deal photos: %w", err)
+	}
+	photos := make([]merchant.DealMediaData, 0, len(rows))
+	for _, row := range rows {
+		id := toUUID(row.ID)
+		photo := merchant.DealMediaData{
+			ID: &id, URL: row.Url, Width: int(row.Width), Height: int(row.Height), Blurhash: row.Blurhash,
+		}
+		if row.MediaAssetID.Valid {
+			assetID := toUUID(row.MediaAssetID)
+			photo.AssetID = &assetID
+		}
+		photos = append(photos, photo)
+	}
+	return photos, nil
 }
 
 func (r *MerchantDealRepository) CategoryAllowsDealCreation(ctx context.Context, categoryID uuid.UUID) (bool, error) {
@@ -350,13 +417,15 @@ func writeDealChildren(ctx context.Context, queries *sqlc.Queries, dealID uuid.U
 	}
 	for _, item := range in.Media {
 		if err := queries.InsertDealMedia(ctx, sqlc.InsertDealMediaParams{
-			DealID:    toPgUUID(dealID),
-			Url:       item.URL,
-			Alt:       mustJSON(item.Alt),
-			SortOrder: int32(item.SortOrder),
-			Width:     int32(item.Width),
-			Height:    int32(item.Height),
-			Blurhash:  item.Blurhash,
+			ID:           pgUUIDPtr(item.ID),
+			DealID:       toPgUUID(dealID),
+			MediaAssetID: pgUUIDPtr(item.AssetID),
+			Url:          item.URL,
+			Alt:          mustJSON(item.Alt),
+			SortOrder:    int32(item.SortOrder),
+			Width:        int32(item.Width),
+			Height:       int32(item.Height),
+			Blurhash:     item.Blurhash,
 		}); err != nil {
 			return fmt.Errorf("insert deal media: %w", err)
 		}
@@ -457,6 +526,14 @@ func pgInt4Ptr(value *int) pgtype.Int4 {
 		return pgtype.Int4{}
 	}
 	return pgtype.Int4{Int32: int32(*value), Valid: true}
+}
+
+// pgUUIDPtr maps an optional id to a nullable column value.
+func pgUUIDPtr(id *uuid.UUID) pgtype.UUID {
+	if id == nil {
+		return pgtype.UUID{}
+	}
+	return toPgUUID(*id)
 }
 
 func uniqueUUIDs(ids []uuid.UUID) []uuid.UUID {

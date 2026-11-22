@@ -102,7 +102,7 @@ func (*notApprovedDealRepo) ReviewStatus(context.Context, uuid.UUID) (string, er
 
 func TestDealCreationWaitsForApproval(t *testing.T) {
 	t.Parallel()
-	service := NewDealService(&notApprovedDealRepo{}, nil)
+	service := NewDealService(&notApprovedDealRepo{}, fakeLinks{}, nil)
 	_, err := service.Create(context.Background(), uuid.New(), Actor{UserID: uuid.New(), Role: "merchant_owner"}, validDeal())
 	if !errors.Is(err, ErrMerchantNotApproved) {
 		t.Fatalf("create before approval: got %v, want ErrMerchantNotApproved", err)

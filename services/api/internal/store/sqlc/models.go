@@ -674,16 +674,17 @@ type DealLocation struct {
 }
 
 type DealMedium struct {
-	ID        pgtype.UUID        `json:"id"`
-	DealID    pgtype.UUID        `json:"deal_id"`
-	Url       string             `json:"url"`
-	Alt       []byte             `json:"alt"`
-	SortOrder int32              `json:"sort_order"`
-	Width     int32              `json:"width"`
-	Height    int32              `json:"height"`
-	Blurhash  string             `json:"blurhash"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID           pgtype.UUID        `json:"id"`
+	DealID       pgtype.UUID        `json:"deal_id"`
+	Url          string             `json:"url"`
+	Alt          []byte             `json:"alt"`
+	SortOrder    int32              `json:"sort_order"`
+	Width        int32              `json:"width"`
+	Height       int32              `json:"height"`
+	Blurhash     string             `json:"blurhash"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	MediaAssetID pgtype.UUID        `json:"media_asset_id"`
 }
 
 type DealOption struct {

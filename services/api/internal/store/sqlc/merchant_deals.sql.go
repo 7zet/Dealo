@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countDealOptionsByIDs = `-- name: CountDealOptionsByIDs :one
+SELECT count(*) FROM deal_options
+WHERE deal_id = $1 AND id = ANY($2::uuid[])
+`
+
+type CountDealOptionsByIDsParams struct {
+	DealID    pgtype.UUID   `json:"deal_id"`
+	OptionIds []pgtype.UUID `json:"option_ids"`
+}
+
+func (q *Queries) CountDealOptionsByIDs(ctx context.Context, arg CountDealOptionsByIDsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countDealOptionsByIDs, arg.DealID, arg.OptionIds)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOwnedDeals = `-- name: CountOwnedDeals :one
 SELECT count(*) FROM deals
 WHERE merchant_id = $1 AND deleted_at IS NULL
@@ -297,23 +314,29 @@ func (q *Queries) InsertDealLocation(ctx context.Context, arg InsertDealLocation
 }
 
 const insertDealMedia = `-- name: InsertDealMedia :exec
-INSERT INTO deal_media (deal_id, url, alt, sort_order, width, height, blurhash)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO deal_media (id, deal_id, media_asset_id, url, alt, sort_order, width, height, blurhash)
+VALUES (COALESCE($1::uuid, uuidv7()), $2, $3, $4,
+        $5, $6, $7, $8, $9)
 `
 
 type InsertDealMediaParams struct {
-	DealID    pgtype.UUID `json:"deal_id"`
-	Url       string      `json:"url"`
-	Alt       []byte      `json:"alt"`
-	SortOrder int32       `json:"sort_order"`
-	Width     int32       `json:"width"`
-	Height    int32       `json:"height"`
-	Blurhash  string      `json:"blurhash"`
+	ID           pgtype.UUID `json:"id"`
+	DealID       pgtype.UUID `json:"deal_id"`
+	MediaAssetID pgtype.UUID `json:"media_asset_id"`
+	Url          string      `json:"url"`
+	Alt          []byte      `json:"alt"`
+	SortOrder    int32       `json:"sort_order"`
+	Width        int32       `json:"width"`
+	Height       int32       `json:"height"`
+	Blurhash     string      `json:"blurhash"`
 }
 
+// A photo kept from the previous save reuses its row id; a new photo gets a fresh one.
 func (q *Queries) InsertDealMedia(ctx context.Context, arg InsertDealMediaParams) error {
 	_, err := q.db.Exec(ctx, insertDealMedia,
+		arg.ID,
 		arg.DealID,
+		arg.MediaAssetID,
 		arg.Url,
 		arg.Alt,
 		arg.SortOrder,
@@ -357,6 +380,101 @@ func (q *Queries) ListOwnedDealIDs(ctx context.Context, arg ListOwnedDealIDsPara
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOwnedDealMedia = `-- name: ListOwnedDealMedia :many
+SELECT dm.id, dm.media_asset_id, dm.url, dm.width, dm.height, dm.blurhash
+FROM deal_media dm
+JOIN deals d ON d.id = dm.deal_id
+WHERE dm.deal_id = $1 AND d.merchant_id = $2 AND d.deleted_at IS NULL
+ORDER BY dm.sort_order, dm.id
+`
+
+type ListOwnedDealMediaParams struct {
+	DealID     pgtype.UUID `json:"deal_id"`
+	MerchantID pgtype.UUID `json:"merchant_id"`
+}
+
+type ListOwnedDealMediaRow struct {
+	ID           pgtype.UUID `json:"id"`
+	MediaAssetID pgtype.UUID `json:"media_asset_id"`
+	Url          string      `json:"url"`
+	Width        int32       `json:"width"`
+	Height       int32       `json:"height"`
+	Blurhash     string      `json:"blurhash"`
+}
+
+// The photos currently on an owned deal, which an edit may keep unchanged.
+func (q *Queries) ListOwnedDealMedia(ctx context.Context, arg ListOwnedDealMediaParams) ([]ListOwnedDealMediaRow, error) {
+	rows, err := q.db.Query(ctx, listOwnedDealMedia, arg.DealID, arg.MerchantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOwnedDealMediaRow{}
+	for rows.Next() {
+		var i ListOwnedDealMediaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MediaAssetID,
+			&i.Url,
+			&i.Width,
+			&i.Height,
+			&i.Blurhash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadyMediaAssetsByIDs = `-- name: ListReadyMediaAssetsByIDs :many
+SELECT id, storage_key, width, height
+FROM merchant_media_assets
+WHERE merchant_id = $1 AND id = ANY($2::uuid[])
+  AND status = 'ready' AND deleted_at IS NULL
+`
+
+type ListReadyMediaAssetsByIDsParams struct {
+	MerchantID pgtype.UUID   `json:"merchant_id"`
+	Ids        []pgtype.UUID `json:"ids"`
+}
+
+type ListReadyMediaAssetsByIDsRow struct {
+	ID         pgtype.UUID `json:"id"`
+	StorageKey string      `json:"storage_key"`
+	Width      pgtype.Int4 `json:"width"`
+	Height     pgtype.Int4 `json:"height"`
+}
+
+// Library assets a deal may use: this merchant's, fully uploaded and not deleted.
+func (q *Queries) ListReadyMediaAssetsByIDs(ctx context.Context, arg ListReadyMediaAssetsByIDsParams) ([]ListReadyMediaAssetsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, listReadyMediaAssetsByIDs, arg.MerchantID, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReadyMediaAssetsByIDsRow{}
+	for rows.Next() {
+		var i ListReadyMediaAssetsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StorageKey,
+			&i.Width,
+			&i.Height,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

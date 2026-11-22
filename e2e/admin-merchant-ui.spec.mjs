@@ -70,12 +70,9 @@ async function submitDeal(owner, title) {
       body: PNG,
     });
     media.push({
-      url: upload.asset.url,
+      media_asset_id: upload.asset.id,
       alt: text('Rasm'),
       sort_order: index,
-      width: 1,
-      height: 1,
-      blurhash: '',
     });
   }
   const created = await call(owner, 'POST', '/merchant/deals', {

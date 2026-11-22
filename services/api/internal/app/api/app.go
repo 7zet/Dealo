@@ -134,7 +134,7 @@ func newRouter(cfg config.Config, pool *pgxpool.Pool, limiter identity.RateLimit
 			merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now), authAPI, logger),
 		MerchantMedia: httpapi.NewMerchantMediaAPI(mediaService, workspaceService, authAPI, logger),
 		MerchantDeals: httpapi.NewMerchantDealAPI(
-			merchant.NewDealService(store.NewMerchantDealRepository(pool, store.NewCatalogRepository(pool)), time.Now),
+			merchant.NewDealService(store.NewMerchantDealRepository(pool, store.NewCatalogRepository(pool)), mediaStore, time.Now),
 			workspaceService, authAPI, logger),
 		MerchantPanel:     httpapi.NewMerchantPanelAPI(merchant.NewPanelService(store.NewMerchantPanelRepository(pool), time.Now), merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now), authAPI, logger),
 		MerchantStaff:     httpapi.NewMerchantStaffAPI(merchant.NewStaffService(store.NewMerchantStaffRepository(pool)), merchant.NewWorkspaceService(store.NewMerchantWorkspaceRepository(pool), time.Now), authAPI, logger),

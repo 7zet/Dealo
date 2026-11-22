@@ -33,6 +33,7 @@ type Querier interface {
 	ConsumePhoneOTP(ctx context.Context, id pgtype.UUID) (int64, error)
 	ConvertReservedStock(ctx context.Context, arg ConvertReservedStockParams) error
 	CountAuditLogs(ctx context.Context) (int64, error)
+	CountDealOptionsByIDs(ctx context.Context, arg CountDealOptionsByIDsParams) (int64, error)
 	CountMerchantDocumentKinds(ctx context.Context, merchantID pgtype.UUID) (int32, error)
 	CountMerchantRedemptionHistory(ctx context.Context, arg CountMerchantRedemptionHistoryParams) (int64, error)
 	CountOpenReviewReports(ctx context.Context) (int64, error)
@@ -107,6 +108,7 @@ type Querier interface {
 	InsertBuyerNotification(ctx context.Context, arg InsertBuyerNotificationParams) error
 	InsertDeal(ctx context.Context, arg InsertDealParams) (pgtype.UUID, error)
 	InsertDealLocation(ctx context.Context, arg InsertDealLocationParams) error
+	// A photo kept from the previous save reuses its row id; a new photo gets a fresh one.
 	InsertDealMedia(ctx context.Context, arg InsertDealMediaParams) error
 	InsertDispute(ctx context.Context, arg InsertDisputeParams) (pgtype.UUID, error)
 	InsertFraudSignal(ctx context.Context, arg InsertFraudSignalParams) error
@@ -163,9 +165,13 @@ type Querier interface {
 	ListOrderIDsForUser(ctx context.Context, arg ListOrderIDsForUserParams) ([]pgtype.UUID, error)
 	ListOrderItemsForOrders(ctx context.Context, orderIds []pgtype.UUID) ([]ListOrderItemsForOrdersRow, error)
 	ListOwnedDealIDs(ctx context.Context, arg ListOwnedDealIDsParams) ([]pgtype.UUID, error)
+	// The photos currently on an owned deal, which an edit may keep unchanged.
+	ListOwnedDealMedia(ctx context.Context, arg ListOwnedDealMediaParams) ([]ListOwnedDealMediaRow, error)
 	ListPendingDealIDs(ctx context.Context, arg ListPendingDealIDsParams) ([]pgtype.UUID, error)
 	ListPublishedReviewsForDeal(ctx context.Context, arg ListPublishedReviewsForDealParams) ([]ListPublishedReviewsForDealRow, error)
 	ListPublishedReviewsForMerchant(ctx context.Context, arg ListPublishedReviewsForMerchantParams) ([]ListPublishedReviewsForMerchantRow, error)
+	// Library assets a deal may use: this merchant's, fully uploaded and not deleted.
+	ListReadyMediaAssetsByIDs(ctx context.Context, arg ListReadyMediaAssetsByIDsParams) ([]ListReadyMediaAssetsByIDsRow, error)
 	ListRecentlyViewedDealIDs(ctx context.Context, userID pgtype.UUID) ([]pgtype.UUID, error)
 	ListRelatedDealIDs(ctx context.Context, arg ListRelatedDealIDsParams) ([]pgtype.UUID, error)
 	ListSubcategories(ctx context.Context) ([]ListSubcategoriesRow, error)

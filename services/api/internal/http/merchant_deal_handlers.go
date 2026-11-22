@@ -207,14 +207,16 @@ func dealInput(body gen.DealInput) merchant.DealInput {
 		in.Options = append(in.Options, data)
 	}
 	for _, item := range body.Media {
-		in.Media = append(in.Media, merchant.DealMediaData{
-			URL:       item.Url,
-			Alt:       textOf(item.Alt),
-			SortOrder: item.SortOrder,
-			Width:     item.Width,
-			Height:    item.Height,
-			Blurhash:  item.Blurhash,
-		})
+		data := merchant.DealMediaData{Alt: textOf(item.Alt), SortOrder: item.SortOrder}
+		if item.Id != nil {
+			id := uuid.UUID(*item.Id)
+			data.ID = &id
+		}
+		if item.MediaAssetId != nil {
+			assetID := uuid.UUID(*item.MediaAssetId)
+			data.AssetID = &assetID
+		}
+		in.Media = append(in.Media, data)
 	}
 	return in
 }

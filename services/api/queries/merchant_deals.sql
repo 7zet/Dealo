@@ -66,8 +66,29 @@ WHERE deal_id = sqlc.arg(deal_id) AND NOT (id = ANY(sqlc.arg(keep_ids)::uuid[]))
 DELETE FROM deal_media WHERE deal_id = sqlc.arg(deal_id);
 
 -- name: InsertDealMedia :exec
-INSERT INTO deal_media (deal_id, url, alt, sort_order, width, height, blurhash)
-VALUES (sqlc.arg(deal_id), sqlc.arg(url), sqlc.arg(alt), sqlc.arg(sort_order), sqlc.arg(width), sqlc.arg(height), sqlc.arg(blurhash));
+-- A photo kept from the previous save reuses its row id; a new photo gets a fresh one.
+INSERT INTO deal_media (id, deal_id, media_asset_id, url, alt, sort_order, width, height, blurhash)
+VALUES (COALESCE(sqlc.narg(id)::uuid, uuidv7()), sqlc.arg(deal_id), sqlc.narg(media_asset_id), sqlc.arg(url),
+        sqlc.arg(alt), sqlc.arg(sort_order), sqlc.arg(width), sqlc.arg(height), sqlc.arg(blurhash));
+
+-- name: ListOwnedDealMedia :many
+-- The photos currently on an owned deal, which an edit may keep unchanged.
+SELECT dm.id, dm.media_asset_id, dm.url, dm.width, dm.height, dm.blurhash
+FROM deal_media dm
+JOIN deals d ON d.id = dm.deal_id
+WHERE dm.deal_id = sqlc.arg(deal_id) AND d.merchant_id = sqlc.arg(merchant_id) AND d.deleted_at IS NULL
+ORDER BY dm.sort_order, dm.id;
+
+-- name: ListReadyMediaAssetsByIDs :many
+-- Library assets a deal may use: this merchant's, fully uploaded and not deleted.
+SELECT id, storage_key, width, height
+FROM merchant_media_assets
+WHERE merchant_id = sqlc.arg(merchant_id) AND id = ANY(sqlc.arg(ids)::uuid[])
+  AND status = 'ready' AND deleted_at IS NULL;
+
+-- name: CountDealOptionsByIDs :one
+SELECT count(*) FROM deal_options
+WHERE deal_id = sqlc.arg(deal_id) AND id = ANY(sqlc.arg(option_ids)::uuid[]);
 
 -- name: DeleteDealLocations :exec
 DELETE FROM deal_locations WHERE deal_id = sqlc.arg(deal_id);
