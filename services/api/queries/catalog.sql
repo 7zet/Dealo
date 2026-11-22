@@ -83,7 +83,10 @@ SELECT d.id, d.slug, d.title, d.status, d.sold_count, d.rating_avg::float8 AS ra
        m.website AS merchant_website, m.instagram AS merchant_instagram, m.telegram AS merchant_telegram,
        m.rating_avg::float8 AS merchant_rating_avg,
        m.rating_count AS merchant_rating_count, m.commission_bps AS merchant_commission_bps,
-       c.id AS category_id, c.slug AS category_slug, c.name AS category_name, c.icon AS category_icon
+       c.id AS category_id, c.slug AS category_slug, c.name AS category_name, c.icon AS category_icon,
+       c.searchable AS category_searchable, c.deal_creation_enabled AS category_deal_creation_enabled,
+       c.publish_enabled AS category_publish_enabled, c.purchasable AS category_purchasable,
+       c.redeemable AS category_redeemable
 FROM deals d
 JOIN merchants m ON m.id = d.merchant_id AND m.review_status = 'approved' AND m.deleted_at IS NULL
 JOIN categories c ON c.id = d.category_id

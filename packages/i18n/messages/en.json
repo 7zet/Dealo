@@ -637,7 +637,8 @@
     "status_changes_requested": "Changes requested",
     "status_ended": "Ended",
     "status_approved": "Approved",
-    "status_archived": "Archived"
+    "status_archived": "Archived",
+    "mediaAlt": "Photo {number}"
   },
   "Moderation": {
     "title": "Moderation queue",
@@ -932,7 +933,8 @@
     "orderFailed": "Failed",
     "orderPartiallyRefunded": "Partially refunded",
     "errorOtherBusiness": "This person already works in another business. One account can belong to one business only.",
-    "errorForbidden": "Your role does not allow this action."
+    "errorForbidden": "Your role does not allow this action.",
+    "staffInvited": "Staff member added."
   },
   "Map": {
     "title": "Businesses on the map",
@@ -1110,7 +1112,8 @@
     "errorStaffPhone": "Enter the number as +998 and 9 digits.",
     "errorPhone": "Enter a valid phone number.",
     "errorRequired": "Fill in this field.",
-    "errorHours": "Use the format 09:00-18:00."
+    "errorHours": "Use the format 09:00-18:00.",
+    "errorUrl": "Enter a full address with https://, for example https://dealo.uz"
   },
   "Catalog": {
     "categories": {

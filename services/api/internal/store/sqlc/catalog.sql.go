@@ -523,7 +523,10 @@ SELECT d.id, d.slug, d.title, d.status, d.sold_count, d.rating_avg::float8 AS ra
        m.website AS merchant_website, m.instagram AS merchant_instagram, m.telegram AS merchant_telegram,
        m.rating_avg::float8 AS merchant_rating_avg,
        m.rating_count AS merchant_rating_count, m.commission_bps AS merchant_commission_bps,
-       c.id AS category_id, c.slug AS category_slug, c.name AS category_name, c.icon AS category_icon
+       c.id AS category_id, c.slug AS category_slug, c.name AS category_name, c.icon AS category_icon,
+       c.searchable AS category_searchable, c.deal_creation_enabled AS category_deal_creation_enabled,
+       c.publish_enabled AS category_publish_enabled, c.purchasable AS category_purchasable,
+       c.redeemable AS category_redeemable
 FROM deals d
 JOIN merchants m ON m.id = d.merchant_id AND m.review_status = 'approved' AND m.deleted_at IS NULL
 JOIN categories c ON c.id = d.category_id
@@ -532,33 +535,38 @@ WHERE d.id = ANY($1::uuid[])
 `
 
 type ListDealSummaryRowsRow struct {
-	ID                    pgtype.UUID        `json:"id"`
-	Slug                  string             `json:"slug"`
-	Title                 []byte             `json:"title"`
-	Status                DealStatus         `json:"status"`
-	SoldCount             int32              `json:"sold_count"`
-	RatingAvg             float64            `json:"rating_avg"`
-	RatingCount           int32              `json:"rating_count"`
-	StartsAt              pgtype.Timestamptz `json:"starts_at"`
-	EndsAt                pgtype.Timestamptz `json:"ends_at"`
-	MerchantID            pgtype.UUID        `json:"merchant_id"`
-	MerchantSlug          string             `json:"merchant_slug"`
-	MerchantLegalName     string             `json:"merchant_legal_name"`
-	MerchantDisplayName   string             `json:"merchant_display_name"`
-	MerchantDescription   []byte             `json:"merchant_description"`
-	MerchantLogoUrl       pgtype.Text        `json:"merchant_logo_url"`
-	MerchantCoverUrl      pgtype.Text        `json:"merchant_cover_url"`
-	MerchantPhone         string             `json:"merchant_phone"`
-	MerchantWebsite       pgtype.Text        `json:"merchant_website"`
-	MerchantInstagram     pgtype.Text        `json:"merchant_instagram"`
-	MerchantTelegram      pgtype.Text        `json:"merchant_telegram"`
-	MerchantRatingAvg     float64            `json:"merchant_rating_avg"`
-	MerchantRatingCount   int32              `json:"merchant_rating_count"`
-	MerchantCommissionBps int32              `json:"merchant_commission_bps"`
-	CategoryID            pgtype.UUID        `json:"category_id"`
-	CategorySlug          string             `json:"category_slug"`
-	CategoryName          []byte             `json:"category_name"`
-	CategoryIcon          string             `json:"category_icon"`
+	ID                          pgtype.UUID        `json:"id"`
+	Slug                        string             `json:"slug"`
+	Title                       []byte             `json:"title"`
+	Status                      DealStatus         `json:"status"`
+	SoldCount                   int32              `json:"sold_count"`
+	RatingAvg                   float64            `json:"rating_avg"`
+	RatingCount                 int32              `json:"rating_count"`
+	StartsAt                    pgtype.Timestamptz `json:"starts_at"`
+	EndsAt                      pgtype.Timestamptz `json:"ends_at"`
+	MerchantID                  pgtype.UUID        `json:"merchant_id"`
+	MerchantSlug                string             `json:"merchant_slug"`
+	MerchantLegalName           string             `json:"merchant_legal_name"`
+	MerchantDisplayName         string             `json:"merchant_display_name"`
+	MerchantDescription         []byte             `json:"merchant_description"`
+	MerchantLogoUrl             pgtype.Text        `json:"merchant_logo_url"`
+	MerchantCoverUrl            pgtype.Text        `json:"merchant_cover_url"`
+	MerchantPhone               string             `json:"merchant_phone"`
+	MerchantWebsite             pgtype.Text        `json:"merchant_website"`
+	MerchantInstagram           pgtype.Text        `json:"merchant_instagram"`
+	MerchantTelegram            pgtype.Text        `json:"merchant_telegram"`
+	MerchantRatingAvg           float64            `json:"merchant_rating_avg"`
+	MerchantRatingCount         int32              `json:"merchant_rating_count"`
+	MerchantCommissionBps       int32              `json:"merchant_commission_bps"`
+	CategoryID                  pgtype.UUID        `json:"category_id"`
+	CategorySlug                string             `json:"category_slug"`
+	CategoryName                []byte             `json:"category_name"`
+	CategoryIcon                string             `json:"category_icon"`
+	CategorySearchable          bool               `json:"category_searchable"`
+	CategoryDealCreationEnabled bool               `json:"category_deal_creation_enabled"`
+	CategoryPublishEnabled      bool               `json:"category_publish_enabled"`
+	CategoryPurchasable         bool               `json:"category_purchasable"`
+	CategoryRedeemable          bool               `json:"category_redeemable"`
 }
 
 func (q *Queries) ListDealSummaryRows(ctx context.Context, dealIds []pgtype.UUID) ([]ListDealSummaryRowsRow, error) {
@@ -598,6 +606,11 @@ func (q *Queries) ListDealSummaryRows(ctx context.Context, dealIds []pgtype.UUID
 			&i.CategorySlug,
 			&i.CategoryName,
 			&i.CategoryIcon,
+			&i.CategorySearchable,
+			&i.CategoryDealCreationEnabled,
+			&i.CategoryPublishEnabled,
+			&i.CategoryPurchasable,
+			&i.CategoryRedeemable,
 		); err != nil {
 			return nil, err
 		}

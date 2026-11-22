@@ -98,6 +98,11 @@ export function BusinessForm({ business, canEdit }: { business: Business; canEdi
     const result = await send('merchant/business', 'PATCH', values);
     setBusy(false);
     if (!result.ok) {
+      // The API names the field it refused; show that next to the field, not as a generic failure.
+      if (result.code === 'invalid_url') {
+        setErrors({ website: ui('errorUrl') });
+        return;
+      }
       setMessage({ ok: false, text: t(problemKey(result.code)) });
       return;
     }
@@ -160,6 +165,7 @@ export function LocationsPanel({
   const ui = useTranslations('MerchantUI');
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [removeMessage, setRemoveMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ address?: string; phone?: string; hours?: string }>({});
   const [draft, setDraft] = useState({
     city_id: cities[0]?.id ?? '',
@@ -207,10 +213,10 @@ export function LocationsPanel({
   }
 
   async function remove(id: string) {
-    setMessage(null);
+    setRemoveMessage(null);
     const result = await send(`merchant/locations/${id}`, 'DELETE');
     if (!result.ok) {
-      setMessage(t(problemKey(result.code)));
+      setRemoveMessage(t(problemKey(result.code)));
       return;
     }
     router.refresh();
@@ -267,6 +273,11 @@ export function LocationsPanel({
               </li>
             ))}
           </ul>
+        )}
+        {removeMessage && (
+          <p role="alert" className="text-small text-error">
+            {removeMessage}
+          </p>
         )}
         {canEdit && (
           <form className="grid gap-4 border-t border-border pt-5" noValidate onSubmit={add}>

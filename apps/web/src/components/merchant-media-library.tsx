@@ -242,7 +242,7 @@ export function MerchantMediaLibrary({
         <p className="text-ink-muted">{t('mediaEmpty')}</p>
       ) : (
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {assets.map((asset) => (
+          {assets.map((asset, index) => (
             <li
               key={asset.id}
               className="grid gap-2 rounded-card-ui border border-border bg-surface p-3"
@@ -250,7 +250,7 @@ export function MerchantMediaLibrary({
               {/* eslint-disable-next-line @next/next/no-img-element -- merchant uploads are served by the API, not optimized */}
               <img
                 src={asset.url}
-                alt=""
+                alt={t('mediaAlt', { number: index + 1 })}
                 className="aspect-[4/3] w-full rounded-control-ui object-cover"
               />
               {canEdit && (

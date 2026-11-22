@@ -54,11 +54,13 @@ export function MerchantStaffInvite() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [role, setRole] = useState<AssignableRole>('merchant_cashier');
   const [message, setMessage] = useState<string | null>(null);
+  const [invited, setInvited] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function invite(event: React.FormEvent) {
     event.preventDefault();
     setMessage(null);
+    setInvited(false);
     if (!PHONE.test(phone)) {
       setPhoneError(ui('errorStaffPhone'));
       return;
@@ -76,6 +78,7 @@ export function MerchantStaffInvite() {
       return;
     }
     setPhone('+998');
+    setInvited(true);
     router.refresh();
   }
 
@@ -121,6 +124,11 @@ export function MerchantStaffInvite() {
       {message && (
         <p role="alert" className="text-small text-error sm:col-span-3">
           {message}
+        </p>
+      )}
+      {invited && (
+        <p role="status" className="text-small text-save sm:col-span-3">
+          {t('staffInvited')}
         </p>
       )}
     </form>

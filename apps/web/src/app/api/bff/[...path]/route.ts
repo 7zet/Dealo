@@ -72,6 +72,7 @@ const ALLOWED: { method: string; pattern: RegExp }[] = [
   { method: 'PUT', pattern: new RegExp(`^merchant\\/deals\\/${UUID}$`) },
   { method: 'DELETE', pattern: new RegExp(`^merchant\\/deals\\/${UUID}$`) },
   { method: 'POST', pattern: new RegExp(`^merchant\\/deals\\/${UUID}\\/submit$`) },
+  { method: 'GET', pattern: /^merchant\/media$/ },
   { method: 'POST', pattern: /^merchant\/media$/ },
   { method: 'PUT', pattern: new RegExp(`^merchant\\/media\\/${UUID}\\/content$`) },
   { method: 'DELETE', pattern: new RegExp(`^merchant\\/media\\/${UUID}$`) },

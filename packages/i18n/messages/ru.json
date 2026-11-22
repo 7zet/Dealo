@@ -637,7 +637,8 @@
     "status_changes_requested": "Нужны правки",
     "status_ended": "Завершён",
     "status_approved": "Одобрен",
-    "status_archived": "В архиве"
+    "status_archived": "В архиве",
+    "mediaAlt": "Фото {number}"
   },
   "Moderation": {
     "title": "Очередь модерации",
@@ -932,7 +933,8 @@
     "orderFailed": "Не удался",
     "orderPartiallyRefunded": "Частично возвращён",
     "errorOtherBusiness": "Этот человек уже работает в другом бизнесе. Один аккаунт может относиться только к одному бизнесу.",
-    "errorForbidden": "Ваша роль не позволяет выполнить это действие."
+    "errorForbidden": "Ваша роль не позволяет выполнить это действие.",
+    "staffInvited": "Сотрудник добавлен."
   },
   "Map": {
     "title": "Заведения на карте",
@@ -1110,7 +1112,8 @@
     "errorStaffPhone": "Введите номер в формате +998 и 9 цифр.",
     "errorPhone": "Введите корректный номер телефона.",
     "errorRequired": "Заполните это поле.",
-    "errorHours": "Используйте формат 09:00-18:00."
+    "errorHours": "Используйте формат 09:00-18:00.",
+    "errorUrl": "Введите полный адрес с https://, например https://dealo.uz"
   },
   "Catalog": {
     "categories": {

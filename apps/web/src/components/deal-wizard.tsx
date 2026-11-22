@@ -112,7 +112,7 @@ export function stepProblem(step: number, draft: Draft): string | null {
     }));
     if (priced.some((o) => !o.original || !o.deal)) return 'priceRequired';
     if (priced.some((o) => (o.deal ?? 0) > (o.original ?? 0))) return 'price';
-    if (priced.some((o) => o.stock === null)) return 'stockRequired';
+    if (priced.some((o) => !o.stock)) return 'stockRequired';
   }
   if (step === 2 && (draft.mediaIds.length < 3 || draft.mediaIds.length > 8)) return 'mediaCount';
   if (step === 3) {

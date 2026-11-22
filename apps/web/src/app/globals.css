@@ -189,3 +189,14 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 26rem;
 }
+
+/*
+ * A <select> is as wide as its longest option ("Toshkent — Yunusobod tumani, Amir Temur ko‘chasi…"),
+ * which pushed the merchant forms past a 390px phone. Let it shrink to its container instead.
+ */
+@layer base {
+  select {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

@@ -32,11 +32,13 @@ export default async function AnalyticsPage({
   await requirePanelPermission('workspace.view', '/merchant/analytics');
   const query = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
-  const to = query.to && DATE.test(query.to) ? query.to : today;
-  const from =
+  const end = query.to && DATE.test(query.to) ? query.to : today;
+  const start =
     query.from && DATE.test(query.from)
       ? query.from
-      : new Date(Date.parse(to) - 29 * DAY_MS).toISOString().slice(0, 10);
+      : new Date(Date.parse(end) - 29 * DAY_MS).toISOString().slice(0, 10);
+  // A reversed range (start after end) is read the other way round instead of failing the page.
+  const [from, to] = start <= end ? [start, end] : [end, start];
   const [t, ui, format] = await Promise.all([
     getTranslations('MerchantPanel'),
     getTranslations('MerchantUI'),

@@ -637,7 +637,8 @@
     "status_changes_requested": "Tuzatish kerak",
     "status_ended": "Tugagan",
     "status_approved": "Tasdiqlangan",
-    "status_archived": "Arxivlangan"
+    "status_archived": "Arxivlangan",
+    "mediaAlt": "Rasm {number}"
   },
   "Moderation": {
     "title": "Moderatsiya navbati",
@@ -932,7 +933,8 @@
     "orderFailed": "Muvaffaqiyatsiz",
     "orderPartiallyRefunded": "Qisman qaytarilgan",
     "errorOtherBusiness": "Bu odam allaqachon boshqa biznesda ishlaydi. Bitta hisob faqat bitta biznesga tegishli bo‘lishi mumkin.",
-    "errorForbidden": "Rolingiz bu amalni bajarishga ruxsat bermaydi."
+    "errorForbidden": "Rolingiz bu amalni bajarishga ruxsat bermaydi.",
+    "staffInvited": "Xodim qo‘shildi."
   },
   "Map": {
     "title": "Xaritadagi bizneslar",
@@ -1110,7 +1112,8 @@
     "errorStaffPhone": "Raqamni +998 va 9 ta raqam ko‘rinishida kiriting.",
     "errorPhone": "Telefon raqamini to‘g‘ri kiriting.",
     "errorRequired": "Bu maydonni to‘ldiring.",
-    "errorHours": "09:00-18:00 ko‘rinishida kiriting."
+    "errorHours": "09:00-18:00 ko‘rinishida kiriting.",
+    "errorUrl": "Manzilni https:// bilan to‘liq kiriting, masalan https://dealo.uz"
   },
   "Catalog": {
     "categories": {

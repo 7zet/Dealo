@@ -146,3 +146,25 @@ func TestMapLocationsListOnlyApprovedMerchants(t *testing.T) {
 		t.Fatal("expected at least one branch with active deals")
 	}
 }
+
+// The deal page decides whether to sell from the category flags carried by the deal, so they must
+// come from the database (a missing column read as false paused sales on every deal).
+func TestDealCarriesItsCategoryFlags(t *testing.T) {
+	fixture := newCatalogFixture(t)
+	ctx := context.Background()
+	var slug string
+	var purchasable, redeemable bool
+	if err := fixture.pool.QueryRow(ctx, `
+		SELECT d.slug, c.purchasable, c.redeemable FROM deals d
+		JOIN categories c ON c.id = d.category_id
+		WHERE d.status = 'active' AND c.purchasable LIMIT 1`).Scan(&slug, &purchasable, &redeemable); err != nil {
+		t.Fatal(err)
+	}
+	deal, err := store.NewCatalogRepository(fixture.pool).DealBySlug(ctx, slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deal.Category.Purchasable != purchasable || deal.Category.Redeemable != redeemable || !deal.Category.Searchable {
+		t.Fatalf("category flags = %+v, want purchasable=%v redeemable=%v searchable", deal.Category, purchasable, redeemable)
+	}
+}
