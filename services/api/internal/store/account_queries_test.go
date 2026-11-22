@@ -30,7 +30,7 @@ func redeemedVoucherFor(t *testing.T, fixture catalogFixture, buyerID uuid.UUID)
 	}
 	var orderID, itemID uuid.UUID
 	if err := fixture.pool.QueryRow(ctx, `INSERT INTO orders(number,user_id,status,subtotal,total,idempotency_key,paid_at)
-		VALUES('GR-T-' || nextval('order_number_seq'),$1,'paid',$2,$2,$3,now()) RETURNING id`,
+		VALUES('DL-T-' || nextval('order_number_seq'),$1,'paid',$2,$2,$3,now()) RETURNING id`,
 		buyerID, price, uuid.NewString()).Scan(&orderID); err != nil {
 		t.Fatalf("order: %v", err)
 	}

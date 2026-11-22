@@ -35,7 +35,7 @@ func freshVoucher(t *testing.T, fixture catalogFixture, validUntil time.Time) (v
 		t.Fatal(err)
 	}
 	var orderID, itemID string
-	if err := fixture.pool.QueryRow(ctx, `INSERT INTO orders(number,user_id,status,subtotal,total,idempotency_key,paid_at) VALUES('GR-T-' || nextval('order_number_seq'),$1,'paid',$2,$2,$3,now()) RETURNING id`,
+	if err := fixture.pool.QueryRow(ctx, `INSERT INTO orders(number,user_id,status,subtotal,total,idempotency_key,paid_at) VALUES('DL-T-' || nextval('order_number_seq'),$1,'paid',$2,$2,$3,now()) RETURNING id`,
 		buyerID, price, uuid.NewString()).Scan(&orderID); err != nil {
 		t.Fatalf("order: %v", err)
 	}
