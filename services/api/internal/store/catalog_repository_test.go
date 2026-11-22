@@ -19,6 +19,7 @@ import (
 
 // catalogFixture is a freshly seeded database with the public catalog service wired to it.
 type catalogFixture struct {
+	url     string // the seeded database, for tests that reseed it
 	pool    *pgxpool.Pool
 	service *catalog.Service
 	now     time.Time
@@ -56,6 +57,7 @@ func newCatalogFixture(t *testing.T) catalogFixture {
 	now := time.Now()
 	repo := store.NewCatalogRepository(pool)
 	return catalogFixture{
+		url:     url,
 		pool:    pool,
 		service: catalog.NewService(repo, nil, func() time.Time { return now }),
 		now:     now,

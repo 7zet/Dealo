@@ -2,7 +2,6 @@ package store_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/dealo/dealo/services/api/internal/seed"
@@ -23,10 +22,10 @@ func TestSeedRoleAccountsSurviveASelfRegisteredPhone(t *testing.T) {
 		`INSERT INTO users (email, name, phone) VALUES ('998900000014@phone.dealo.local', 'Self', '+998900000014')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := seed.Run(ctx, os.Getenv("TEST_DATABASE_URL")); err != nil {
+	if err := seed.Run(ctx, fixture.url); err != nil {
 		t.Fatalf("reseed with a self-registered manager phone: %v", err)
 	}
-	if err := seed.Run(ctx, os.Getenv("TEST_DATABASE_URL")); err != nil {
+	if err := seed.Run(ctx, fixture.url); err != nil {
 		t.Fatalf("second reseed: %v", err)
 	}
 
